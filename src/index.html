@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClaudePulse</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="capsule" class="capsule">
+    <!-- Collapsed capsule bar -->
+    <div class="capsule-bar" data-tauri-drag-region>
+      <div class="status-dot-container">
+        <div class="status-dot" id="statusDot"></div>
+        <div class="status-dot-pulse" id="statusDotPulse"></div>
+      </div>
+      <span class="project-name" id="projectName">ClaudePulse</span>
+      <span class="status-text" id="statusText">No sessions</span>
+      <span class="timer" id="timer"></span>
+      <span class="session-count" id="sessionCount" style="display:none"></span>
+      <button class="settings-btn" id="settingsBtn" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Expanded session list -->
+    <div class="session-list" id="sessionList"></div>
+
+    <!-- Settings panel -->
+    <div class="settings-panel" id="settingsPanel" style="display:none">
+      <div class="settings-section">
+        <label class="settings-label">Position</label>
+        <div class="settings-row">
+          <button class="pos-btn" data-pos="top-center">Top Center</button>
+          <button class="pos-btn" data-pos="bottom-left">Bottom Left</button>
+          <button class="pos-btn" data-pos="bottom-right">Bottom Right</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Accent Color</label>
+        <div class="settings-row">
+          <button class="color-btn" data-color="purple" style="--btn-color: #a855f7"></button>
+          <button class="color-btn" data-color="cyan" style="--btn-color: #06b6d4"></button>
+          <button class="color-btn" data-color="green" style="--btn-color: #22c55e"></button>
+          <button class="color-btn" data-color="orange" style="--btn-color: #f97316"></button>
+          <button class="color-btn" data-color="pink" style="--btn-color: #ec4899"></button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Text Size</label>
+        <div class="settings-row">
+          <button class="size-btn" data-size="small">S</button>
+          <button class="size-btn" data-size="medium">M</button>
+          <button class="size-btn" data-size="large">L</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Sound on Complete</label>
+        <div class="settings-row">
+          <button class="toggle-btn" id="soundToggle">On</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Hooks</label>
+        <div class="settings-row">
+          <button class="hook-btn" id="hookBtn">Configure Hooks</button>
+          <span class="hook-status" id="hookStatus"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="capsule.js"></script>
+</body>
+</html>
