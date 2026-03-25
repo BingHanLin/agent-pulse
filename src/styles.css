@@ -151,6 +151,9 @@ html, body {
    ============================================================ */
 .session-list {
   padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .session-row {
@@ -179,11 +182,20 @@ html, body {
 
 /* Waiting session subtle highlight */
 .session-row.row-state-waitingForUser {
-  background: rgba(251, 191, 36, 0.06);
+  background: var(--waiting-dim);
 }
 
 .session-row.row-state-waitingForUser:hover {
-  background: rgba(251, 191, 36, 0.10);
+  background: var(--waiting-glow);
+}
+
+/* Idle session subtle highlight */
+.session-row.row-state-idle {
+  background: var(--idle-dim);
+}
+
+.session-row.row-state-idle:hover {
+  background: var(--idle-glow);
 }
 
 /* ---- Status Dot ---- */
@@ -274,6 +286,10 @@ html, body {
 
 .row-state-waitingForUser .row-state {
   color: var(--color-waiting);
+}
+
+.row-state-idle .row-state {
+  color: var(--color-idle);
 }
 
 .row-timer {

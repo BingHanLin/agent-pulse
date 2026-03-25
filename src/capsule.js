@@ -7,7 +7,7 @@ let settings = {};
 let showSettings = false;
 let timerInterval = null;
 let hooksInstalled = false;
-const ROW_HEIGHT = 44;
+const ROW_HEIGHT = 48;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
 const SETTINGS_HEIGHT = 280;
@@ -65,6 +65,7 @@ async function init() {
 
   await listen('show-settings', () => {
     showSettings = true;
+    settingsBtn.classList.add('open');
     renderSettings();
     resizeWindow();
   });
@@ -210,10 +211,18 @@ function applySettings() {
   document.documentElement.style.setProperty('--color-waiting', waiting);
   document.documentElement.style.setProperty('--color-idle', idle);
 
-  // Working color derived tokens (for session row glow)
-  const { r, g, b } = hexToRgb(working);
-  document.documentElement.style.setProperty('--accent-dim', `rgba(${r}, ${g}, ${b}, 0.15)`);
-  document.documentElement.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.25)`);
+  // Derived color tokens (for session row backgrounds)
+  const wRgb = hexToRgb(working);
+  document.documentElement.style.setProperty('--accent-dim', `rgba(${wRgb.r}, ${wRgb.g}, ${wRgb.b}, 0.15)`);
+  document.documentElement.style.setProperty('--accent-glow', `rgba(${wRgb.r}, ${wRgb.g}, ${wRgb.b}, 0.25)`);
+
+  const waitRgb = hexToRgb(waiting);
+  document.documentElement.style.setProperty('--waiting-dim', `rgba(${waitRgb.r}, ${waitRgb.g}, ${waitRgb.b}, 0.06)`);
+  document.documentElement.style.setProperty('--waiting-glow', `rgba(${waitRgb.r}, ${waitRgb.g}, ${waitRgb.b}, 0.10)`);
+
+  const iRgb = hexToRgb(idle);
+  document.documentElement.style.setProperty('--idle-dim', `rgba(${iRgb.r}, ${iRgb.g}, ${iRgb.b}, 0.10)`);
+  document.documentElement.style.setProperty('--idle-glow', `rgba(${iRgb.r}, ${iRgb.g}, ${iRgb.b}, 0.18)`);
 
   // Text size
   const scale = textScales[settings.textSize] || 1.0;
