@@ -5,20 +5,12 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    pub accent_color: AccentColor,
+    pub color_working: String,
+    pub color_waiting: String,
+    pub color_idle: String,
     pub text_size: TextSize,
     pub sound_on_complete: bool,
     pub theme: Theme,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum AccentColor {
-    Purple,
-    Cyan,
-    Green,
-    Orange,
-    Pink,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -39,7 +31,9 @@ pub enum Theme {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            accent_color: AccentColor::Purple,
+            color_working: "#a78bfa".to_string(),
+            color_waiting: "#fbbf24".to_string(),
+            color_idle: "#71717a".to_string(),
             text_size: TextSize::Medium,
             sound_on_complete: true,
             theme: Theme::Dark,
@@ -83,11 +77,21 @@ impl SettingsStore {
         self.save()
     }
 
+    pub fn reset(&mut self) {
+        self.settings = Settings::default();
+        let _ = self.save();
+    }
+
     pub fn update_field(&mut self, key: &str, value: &str) -> Result<(), String> {
         match key {
-            "accentColor" => {
-                self.settings.accent_color = serde_json::from_str(&format!("\"{}\"", value))
-                    .map_err(|_| format!("Invalid accent color: {}", value))?;
+            "colorWorking" => {
+                self.settings.color_working = value.to_string();
+            }
+            "colorWaiting" => {
+                self.settings.color_waiting = value.to_string();
+            }
+            "colorIdle" => {
+                self.settings.color_idle = value.to_string();
             }
             "textSize" => {
                 self.settings.text_size = serde_json::from_str(&format!("\"{}\"", value))

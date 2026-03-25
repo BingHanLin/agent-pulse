@@ -22,14 +22,6 @@ const soundToggle = document.getElementById('soundToggle');
 const hookBtn = document.getElementById('hookBtn');
 const hookStatus = document.getElementById('hookStatus');
 
-// Color map — softer, more refined palette
-const accentColors = {
-  purple: '#a78bfa',
-  cyan: '#22d3ee',
-  green: '#34d399',
-  orange: '#fb923c',
-  pink: '#f472b6',
-};
 
 const textScales = {
   small: 0.85,
@@ -62,6 +54,7 @@ async function init() {
   await listen('settings-changed', (event) => {
     settings = event.payload;
     applySettings();
+    if (showSettings) renderSettings();
     render();
   });
 
@@ -134,10 +127,9 @@ function renderSettings() {
     btn.onclick = () => setSetting('theme', btn.dataset.theme);
   });
 
-  document.querySelectorAll('.color-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.color === settings.accentColor);
-    btn.onclick = () => setSetting('accentColor', btn.dataset.color);
-  });
+  bindColorPicker('colorWorking');
+  bindColorPicker('colorWaiting');
+  bindColorPicker('colorIdle');
 
   document.querySelectorAll('.size-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.size === settings.textSize);
@@ -157,6 +149,9 @@ function renderSettings() {
     }
   };
 
+  document.getElementById('resetBtn').onclick = async () => {
+    await invoke('reset_settings');
+  };
 }
 
 function renderHookStatus() {
@@ -184,21 +179,40 @@ async function resizeWindow() {
 
 // --- Settings ---
 
+function bindColorPicker(settingKey) {
+  const picker = document.getElementById(settingKey);
+  picker.value = settings[settingKey] || '#a78bfa';
+  picker.oninput = () => {
+    settings[settingKey] = picker.value;
+    applySettings();
+    render();
+  };
+  picker.onchange = () => setSetting(settingKey, picker.value);
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return { r, g, b };
+}
+
 function applySettings() {
-  // Theme
   document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
 
-  // Accent color
-  const color = accentColors[settings.accentColor] || accentColors.purple;
-  document.documentElement.style.setProperty('--accent', color);
+  // State colors
+  const working = settings.colorWorking || '#a78bfa';
+  const waiting = settings.colorWaiting || '#fbbf24';
+  const idle = settings.colorIdle || '#71717a';
 
-  // Update accent-derived tokens
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
+  document.documentElement.style.setProperty('--color-working', working);
+  document.documentElement.style.setProperty('--color-waiting', waiting);
+  document.documentElement.style.setProperty('--color-idle', idle);
+
+  // Working color derived tokens (for session row glow)
+  const { r, g, b } = hexToRgb(working);
   document.documentElement.style.setProperty('--accent-dim', `rgba(${r}, ${g}, ${b}, 0.15)`);
   document.documentElement.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.25)`);
-  document.documentElement.style.setProperty('--ring-focus', `rgba(${r}, ${g}, ${b}, 0.5)`);
 
   // Text size
   const scale = textScales[settings.textSize] || 1.0;
@@ -227,10 +241,11 @@ function formatElapsed(startTimeMs) {
 }
 
 function getDotColor(state) {
+  const style = getComputedStyle(document.documentElement);
   const colors = {
-    idle: getComputedStyle(document.documentElement).getPropertyValue('--color-idle').trim(),
-    working: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
-    waitingForUser: getComputedStyle(document.documentElement).getPropertyValue('--color-waiting').trim(),
+    idle: style.getPropertyValue('--color-idle').trim(),
+    working: style.getPropertyValue('--color-working').trim(),
+    waitingForUser: style.getPropertyValue('--color-waiting').trim(),
   };
   return colors[state] || colors.idle;
 }

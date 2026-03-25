@@ -33,6 +33,19 @@ pub fn set_setting(
 }
 
 #[tauri::command]
+pub fn reset_settings(
+    app: AppHandle,
+    settings_store: State<'_, Mutex<SettingsStore>>,
+) -> Result<(), String> {
+    let mut store = settings_store.lock().unwrap();
+    store.reset();
+    let settings = store.get_cloned();
+    drop(store);
+    let _ = app.emit("settings-changed", &settings);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn configure_hooks(app: AppHandle, port: State<'_, ServerPort>) -> Result<(), String> {
     hooks_config::install_hooks(port.0)?;
     let _ = app.emit("hooks-status-changed", true);

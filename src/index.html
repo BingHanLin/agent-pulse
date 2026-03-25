@@ -24,48 +24,69 @@
 
     <!-- Settings panel -->
     <div class="settings-panel" id="settingsPanel" style="display:none">
-      <div class="settings-section">
-        <label class="settings-label">Accent Color</label>
-        <div class="settings-row">
-          <button class="color-btn" data-color="purple" style="--btn-color: #a78bfa" aria-label="Purple accent"></button>
-          <button class="color-btn" data-color="cyan" style="--btn-color: #22d3ee" aria-label="Cyan accent"></button>
-          <button class="color-btn" data-color="green" style="--btn-color: #34d399" aria-label="Green accent"></button>
-          <button class="color-btn" data-color="orange" style="--btn-color: #fb923c" aria-label="Orange accent"></button>
-          <button class="color-btn" data-color="pink" style="--btn-color: #f472b6" aria-label="Pink accent"></button>
+
+      <!-- Status Colors -->
+      <div class="settings-group">
+        <label class="settings-label">Status Colors <span class="hint-icon" data-hint="Working: Claude is processing a task&#10;Waiting: Claude needs your permission&#10;Idle: Session open but not active">?</span></label>
+        <div class="color-row">
+          <div class="color-field">
+            <input type="color" class="color-picker" id="colorWorking">
+            <span class="color-field-label">Working</span>
+          </div>
+          <div class="color-field">
+            <input type="color" class="color-picker" id="colorWaiting">
+            <span class="color-field-label">Waiting</span>
+          </div>
+          <div class="color-field">
+            <input type="color" class="color-picker" id="colorIdle">
+            <span class="color-field-label">Idle</span>
+          </div>
         </div>
       </div>
 
-      <div class="settings-section">
-        <label class="settings-label">Text Size</label>
-        <div class="settings-row">
-          <button class="size-btn" data-size="small">S</button>
-          <button class="size-btn" data-size="medium">M</button>
-          <button class="size-btn" data-size="large">L</button>
+      <!-- Appearance -->
+      <div class="settings-group">
+        <label class="settings-label">Appearance</label>
+        <div class="settings-section">
+          <div class="settings-row">
+            <span class="settings-inline-label">Theme</span>
+            <button class="theme-btn" data-theme="dark">Dark</button>
+            <button class="theme-btn" data-theme="light">Light</button>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-row">
+            <span class="settings-inline-label">Text Size</span>
+            <button class="size-btn" data-size="small">S</button>
+            <button class="size-btn" data-size="medium">M</button>
+            <button class="size-btn" data-size="large">L</button>
+          </div>
         </div>
       </div>
 
-      <div class="settings-section">
-        <label class="settings-label">Theme</label>
+      <!-- Notifications -->
+      <div class="settings-group">
+        <label class="settings-label">Notifications <span class="hint-icon" data-hint="Sound plays when Claude finishes a task (Stop event)">?</span></label>
         <div class="settings-row">
-          <button class="theme-btn" data-theme="dark">Dark</button>
-          <button class="theme-btn" data-theme="light">Light</button>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <label class="settings-label">Sound on Complete</label>
-        <div class="settings-row">
+          <span class="settings-inline-label">Sound</span>
           <button class="toggle-btn" id="soundToggle">On</button>
         </div>
       </div>
 
-      <div class="settings-section">
-        <label class="settings-label">Hooks</label>
+      <!-- System -->
+      <div class="settings-group">
+        <label class="settings-label">System <span class="hint-icon" data-hint="Installs hooks in ~/.claude/settings.json&#10;that send session events to this app via&#10;a local webhook on port 19280-19289">?</span></label>
         <div class="settings-row">
           <button class="hook-btn" id="hookBtn">Configure Hooks</button>
           <span class="hook-status" id="hookStatus"></span>
         </div>
       </div>
+
+      <!-- Reset -->
+      <div class="settings-footer">
+        <button class="hook-btn" id="resetBtn" style="width:100%">Reset to Default</button>
+      </div>
+
     </div>
   </div>
 

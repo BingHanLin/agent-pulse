@@ -23,6 +23,7 @@ pub fn run() {
             commands::get_sessions,
             commands::get_settings,
             commands::set_setting,
+            commands::reset_settings,
             commands::configure_hooks,
             commands::remove_hooks,
             commands::get_hook_status,
