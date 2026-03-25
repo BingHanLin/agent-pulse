@@ -7,11 +7,12 @@ let settings = {};
 let showSettings = false;
 let timerInterval = null;
 let hooksInstalled = false;
+let debugMode = false;
 
 const ROW_HEIGHT = 44;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
-const SETTINGS_HEIGHT = 290;
+const SETTINGS_HEIGHT = 330;
 let lastHeight = null;
 
 // DOM refs
@@ -22,6 +23,7 @@ const settingsBtn = document.getElementById('settingsBtn');
 const soundToggle = document.getElementById('soundToggle');
 const hookBtn = document.getElementById('hookBtn');
 const hookStatus = document.getElementById('hookStatus');
+const debugToggle = document.getElementById('debugToggle');
 
 // Color map — softer, more refined palette
 const accentColors = {
@@ -42,8 +44,6 @@ const stateLabels = {
   idle: 'Idle',
   working: 'Working',
   waitingForUser: 'Waiting',
-  stale: 'Stale',
-  stopped: 'Stopped',
 };
 
 // --- Initialization ---
@@ -119,7 +119,7 @@ function renderSessionList() {
           <div class="row-dot-pulse" style="background: ${dotColor}"></div>
         </div>
         <div class="row-info">
-          <div class="row-project">${escapeHtml(s.projectName)}</div>
+          <div class="row-project">${escapeHtml(s.projectName)}${debugMode ? `<span class="debug-pid"> [PID: ${s.pid || '?'}]</span>` : ''}</div>
           ${promptText ? `<div class="row-prompt">${escapeHtml(promptText)}</div>` : ''}
         </div>
         <span class="row-state">${stateLabels[s.state] || s.state}</span>
@@ -158,6 +158,14 @@ function renderSettings() {
     } else {
       await invoke('configure_hooks');
     }
+  };
+
+  debugToggle.textContent = debugMode ? 'On' : 'Off';
+  debugToggle.classList.toggle('on', debugMode);
+  debugToggle.onclick = () => {
+    debugMode = !debugMode;
+    renderSettings();
+    render();
   };
 }
 
@@ -233,8 +241,6 @@ function getDotColor(state) {
     idle: getComputedStyle(document.documentElement).getPropertyValue('--color-idle').trim(),
     working: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
     waitingForUser: getComputedStyle(document.documentElement).getPropertyValue('--color-waiting').trim(),
-    stale: getComputedStyle(document.documentElement).getPropertyValue('--color-stale').trim(),
-    stopped: getComputedStyle(document.documentElement).getPropertyValue('--color-stopped').trim(),
   };
   return colors[state] || colors.idle;
 }

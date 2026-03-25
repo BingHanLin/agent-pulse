@@ -1,12 +1,12 @@
+use crate::process_monitor::ProcessMonitor;
 use crate::webhook_server::HookEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-const STALE_TIMEOUT_SECS: u64 = 10 * 60; // 10 minutes
-const REMOVE_TIMEOUT_SECS: u64 = 30 * 60; // 30 minutes
-const IDLE_DOWNGRADE_SECS: u64 = 30; // 30 seconds
+const REMOVE_TIMEOUT_SECS: u64 = 5 * 60; // 5 minutes — fallback for sessions without PID
+const IDLE_DOWNGRADE_SECS: u64 = 30; // 30 seconds — Working → Idle if no events
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,18 +14,14 @@ pub enum SessionState {
     Idle,
     Working,
     WaitingForUser,
-    Stale,
-    Stopped,
 }
 
 impl SessionState {
     pub fn priority(&self) -> u8 {
         match self {
-            SessionState::WaitingForUser => 4,
-            SessionState::Working => 3,
-            SessionState::Idle => 2,
-            SessionState::Stale => 1,
-            SessionState::Stopped => 0,
+            SessionState::WaitingForUser => 3,
+            SessionState::Working => 2,
+            SessionState::Idle => 1,
         }
     }
 }
@@ -42,6 +38,7 @@ pub struct SessionInfo {
     pub last_prompt: Option<String>,
     pub last_tool_name: Option<String>,
     pub is_active: bool,
+    pub pid: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -50,31 +47,30 @@ struct Session {
     project_path: String,
     project_name: String,
     state: SessionState,
-    start_time: Instant,
     start_time_ms: u64,
     last_activity: Instant,
     last_activity_ms: u64,
     last_prompt: Option<String>,
     last_tool_name: Option<String>,
+    pid: Option<u32>,
 }
 
 impl Session {
-    fn new(id: String, cwd: Option<String>) -> Self {
+    fn new(id: String, cwd: Option<String>, pid: Option<u32>) -> Self {
         let project_path = cwd.unwrap_or_default();
         let project_name = extract_project_name(&project_path);
-        let now = Instant::now();
         let now_ms = current_time_ms();
         Session {
             id,
             project_path,
             project_name,
             state: SessionState::Idle,
-            start_time: now,
             start_time_ms: now_ms,
-            last_activity: now,
+            last_activity: Instant::now(),
             last_activity_ms: now_ms,
             last_prompt: None,
             last_tool_name: None,
+            pid,
         }
     }
 
@@ -94,6 +90,7 @@ impl Session {
             last_prompt: self.last_prompt.clone(),
             last_tool_name: self.last_tool_name.clone(),
             is_active: active_id.as_ref() == Some(&self.id),
+            pid: self.pid,
         }
     }
 }
@@ -117,6 +114,7 @@ fn current_time_ms() -> u64 {
 pub struct SessionManager {
     sessions: Arc<Mutex<HashMap<String, Session>>>,
     selected_session: Arc<Mutex<Option<String>>>,
+    process_monitor: Arc<Mutex<ProcessMonitor>>,
 }
 
 impl SessionManager {
@@ -124,16 +122,36 @@ impl SessionManager {
         SessionManager {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             selected_session: Arc::new(Mutex::new(None)),
+            process_monitor: Arc::new(Mutex::new(ProcessMonitor::new())),
+        }
+    }
+
+    fn resolve_pid(&self, project_path: &str) -> Option<u32> {
+        if project_path.is_empty() {
+            return None;
+        }
+        match self.process_monitor.lock() {
+            Ok(mut monitor) => monitor.find_claude_pid(project_path),
+            Err(_) => None,
         }
     }
 
     pub fn handle_event(&self, event: &HookEvent) -> bool {
-        let mut sessions = self.sessions.lock().unwrap();
         let name = event.hook_event_name.as_str();
+
+        // Resolve PID before locking sessions (to avoid holding two locks)
+        let pid = if name == "SessionStart" || (name == "UserPromptSubmit" && !self.has_session(&event.session_id)) {
+            let path = event.cwd.as_deref().unwrap_or("");
+            self.resolve_pid(path)
+        } else {
+            None
+        };
+
+        let mut sessions = self.sessions.lock().unwrap();
 
         match name {
             "SessionStart" => {
-                let session = Session::new(event.session_id.clone(), event.cwd.clone());
+                let session = Session::new(event.session_id.clone(), event.cwd.clone(), pid);
                 sessions.insert(event.session_id.clone(), session);
                 true
             }
@@ -156,7 +174,7 @@ impl SessionManager {
                     true
                 } else {
                     // Auto-create session if we missed the SessionStart
-                    let mut session = Session::new(event.session_id.clone(), event.cwd.clone());
+                    let mut session = Session::new(event.session_id.clone(), event.cwd.clone(), pid);
                     session.state = SessionState::Working;
                     if let Some(prompt) = &event.prompt {
                         session.last_prompt = Some(prompt.clone());
@@ -199,8 +217,29 @@ impl SessionManager {
         }
     }
 
+    fn has_session(&self, session_id: &str) -> bool {
+        self.sessions.lock().unwrap().contains_key(session_id)
+    }
+
     /// Check for stale/dead sessions. Returns true if any sessions changed.
     pub fn check_staleness(&self) -> bool {
+        // Collect PIDs to check before locking sessions
+        let pids_to_check: Vec<(String, u32)> = {
+            let sessions = self.sessions.lock().unwrap();
+            sessions
+                .iter()
+                .filter_map(|(id, s)| s.pid.map(|pid| (id.clone(), pid)))
+                .collect()
+        };
+
+        // Batch-check which PIDs are dead (single syscall)
+        let dead_pid_set: std::collections::HashSet<u32> = if let Ok(mut monitor) = self.process_monitor.lock() {
+            let all_pids: Vec<u32> = pids_to_check.iter().map(|(_, pid)| *pid).collect();
+            monitor.find_dead_pids(&all_pids).into_iter().collect()
+        } else {
+            std::collections::HashSet::new()
+        };
+
         let mut sessions = self.sessions.lock().unwrap();
         let mut changed = false;
         let mut to_remove = Vec::new();
@@ -208,20 +247,22 @@ impl SessionManager {
         for (id, session) in sessions.iter_mut() {
             let elapsed = session.last_activity.elapsed();
 
-            if elapsed > Duration::from_secs(REMOVE_TIMEOUT_SECS) {
+            // PID-based removal: process is confirmed dead
+            if session.pid.is_some_and(|pid| dead_pid_set.contains(&pid)) {
                 to_remove.push(id.clone());
                 changed = true;
-            } else if elapsed > Duration::from_secs(STALE_TIMEOUT_SECS)
-                && session.state != SessionState::Stale
-                && session.state != SessionState::Stopped
-            {
-                session.state = SessionState::Stale;
+                continue;
+            }
+
+            // Fallback timeout-based removal (for sessions without a resolved PID)
+            if elapsed > Duration::from_secs(REMOVE_TIMEOUT_SECS) {
+                to_remove.push(id.clone());
                 changed = true;
             } else if elapsed > Duration::from_secs(IDLE_DOWNGRADE_SECS)
                 && session.state == SessionState::Working
             {
-                // Downgrade active working to idle if no events for 30s
-                // This handles the case where we missed a Stop event
+                session.state = SessionState::Idle;
+                changed = true;
             }
         }
 
@@ -249,21 +290,6 @@ impl SessionManager {
         infos
     }
 
-    pub fn select_session(&self, id: Option<String>) {
-        let mut selected = self.selected_session.lock().unwrap();
-        *selected = id;
-    }
-
-    pub fn get_active_session(&self) -> Option<SessionInfo> {
-        let sessions = self.sessions.lock().unwrap();
-        let selected = self.selected_session.lock().unwrap();
-        let active_id = self.resolve_active_id(&sessions, &selected);
-
-        active_id.and_then(|id| {
-            sessions.get(&id).map(|s| s.to_info(&Some(id)))
-        })
-    }
-
     fn resolve_active_id(
         &self,
         sessions: &HashMap<String, Session>,
@@ -289,15 +315,6 @@ impl SessionManager {
 
     pub fn session_count(&self) -> usize {
         self.sessions.lock().unwrap().len()
-    }
-
-    pub fn running_count(&self) -> usize {
-        self.sessions
-            .lock()
-            .unwrap()
-            .values()
-            .filter(|s| s.state == SessionState::Working || s.state == SessionState::WaitingForUser)
-            .count()
     }
 
     /// Returns true if a Stop event just occurred (for playing sound)
@@ -364,23 +381,6 @@ mod tests {
         mgr.handle_event(&make_event("s1", "SessionStart", Some("/project-a")));
         mgr.handle_event(&make_event("s2", "SessionStart", Some("/project-b")));
         assert_eq!(mgr.session_count(), 2);
-    }
-
-    #[test]
-    fn test_active_session_priority() {
-        let mgr = SessionManager::new();
-        mgr.handle_event(&make_event("s1", "SessionStart", Some("/project-a")));
-        mgr.handle_event(&make_event("s2", "SessionStart", Some("/project-b")));
-
-        // s2 starts working - should become active
-        mgr.handle_event(&make_event("s2", "UserPromptSubmit", None));
-        let active = mgr.get_active_session().unwrap();
-        assert_eq!(active.id, "s2");
-
-        // User selects s1 - should override
-        mgr.select_session(Some("s1".to_string()));
-        let active = mgr.get_active_session().unwrap();
-        assert_eq!(active.id, "s1");
     }
 
     #[test]

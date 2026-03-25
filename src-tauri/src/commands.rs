@@ -11,16 +11,6 @@ pub fn get_sessions(session_manager: State<'_, SessionManager>) -> Vec<SessionIn
 }
 
 #[tauri::command]
-pub fn get_active_session(session_manager: State<'_, SessionManager>) -> Option<SessionInfo> {
-    session_manager.get_active_session()
-}
-
-#[tauri::command]
-pub fn select_session(session_manager: State<'_, SessionManager>, id: Option<String>) {
-    session_manager.select_session(id);
-}
-
-#[tauri::command]
 pub fn get_settings(settings_store: State<'_, Mutex<SettingsStore>>) -> Settings {
     settings_store.lock().unwrap().get_cloned()
 }

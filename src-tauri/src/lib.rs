@@ -1,5 +1,6 @@
 mod commands;
 mod hooks_config;
+mod process_monitor;
 mod session_manager;
 mod settings;
 mod tray;
@@ -20,8 +21,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_sessions,
-            commands::get_active_session,
-            commands::select_session,
             commands::get_settings,
             commands::set_setting,
             commands::configure_hooks,
@@ -100,7 +99,7 @@ pub fn run() {
 
             tauri::async_runtime::spawn(async move {
                 loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     if session_manager_stale.check_staleness() {
                         let sessions = session_manager_stale.get_sessions();
                         let _ = app_handle_stale.emit("sessions-changed", &sessions);
