@@ -297,4 +297,35 @@ function playCompleteSound() {
   } catch (e) {}
 }
 
+// --- Hint Tooltips ---
+const hintTooltip = document.getElementById('hintTooltip');
+
+document.addEventListener('mouseover', (e) => {
+  const icon = e.target.closest('.hint-icon');
+  if (icon && icon.dataset.hint) {
+    hintTooltip.textContent = icon.dataset.hint;
+    hintTooltip.classList.add('visible');
+  }
+});
+
+document.addEventListener('mouseout', (e) => {
+  const icon = e.target.closest('.hint-icon');
+  if (icon) {
+    hintTooltip.classList.remove('visible');
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!hintTooltip.classList.contains('visible')) return;
+  const pad = 12;
+  const rect = hintTooltip.getBoundingClientRect();
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  // Keep within window bounds
+  if (x + rect.width > window.innerWidth - pad) x = e.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - pad) y = e.clientY - rect.height - pad;
+  hintTooltip.style.left = x + 'px';
+  hintTooltip.style.top = y + 'px';
+});
+
 init();

@@ -350,12 +350,9 @@ html, body {
   color: var(--text-secondary);
 }
 
-.hint-icon:hover::after {
-  content: attr(data-hint);
+/* Tooltip is positioned via JS mousemove */
+.hint-tooltip {
   position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 8px;
   background: var(--bg-hover);
   color: var(--text-primary);
   font-size: var(--font-xs);
@@ -364,9 +361,16 @@ html, body {
   border-radius: 6px;
   border: 1px solid var(--border-medium);
   white-space: pre-line;
+  max-width: 220px;
   z-index: 100;
   pointer-events: none;
   line-height: 1.5;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hint-tooltip.visible {
+  opacity: 1;
 }
 
 /* ---- Color Picker Row ---- */
