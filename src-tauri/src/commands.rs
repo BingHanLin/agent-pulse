@@ -39,11 +39,6 @@ pub fn set_setting(
 
     let _ = app.emit("settings-changed", &settings);
 
-    // Reposition window if position changed
-    if key == "position" {
-        reposition_window(&app, &settings);
-    }
-
     Ok(())
 }
 
@@ -72,7 +67,7 @@ pub fn get_server_port(port: State<'_, ServerPort>) -> u16 {
 }
 
 #[tauri::command]
-pub fn set_expanded(app: AppHandle, expanded: bool) -> Result<(), String> {
+pub fn set_expanded(app: AppHandle, height: u32) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("capsule") {
         let current_size = window
             .inner_size()
@@ -82,9 +77,8 @@ pub fn set_expanded(app: AppHandle, expanded: bool) -> Result<(), String> {
             .map_err(|e| format!("Failed to get scale factor: {}", e))?;
 
         let width = (current_size.width as f64 / scale) as u32;
-        let new_height = if expanded { 400 } else { 52 };
 
-        let size = tauri::LogicalSize::new(width, new_height);
+        let size = tauri::LogicalSize::new(width, height);
         window
             .set_size(size)
             .map_err(|e| format!("Failed to resize window: {}", e))?;
@@ -92,25 +86,3 @@ pub fn set_expanded(app: AppHandle, expanded: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn reposition_window(app: &AppHandle, settings: &Settings) {
-    use crate::settings::PanelPosition;
-
-    if let Some(window) = app.get_webview_window("capsule") {
-        if let Ok(monitor) = window.primary_monitor() {
-            if let Some(monitor) = monitor {
-                let monitor_size = monitor.size();
-                let scale = monitor.scale_factor();
-                let monitor_w = monitor_size.width as f64 / scale;
-                let monitor_h = monitor_size.height as f64 / scale;
-
-                let (x, y) = match settings.position {
-                    PanelPosition::TopCenter => ((monitor_w - 360.0) / 2.0, 8.0),
-                    PanelPosition::BottomLeft => (16.0, monitor_h - 60.0),
-                    PanelPosition::BottomRight => (monitor_w - 376.0, monitor_h - 60.0),
-                };
-
-                let _ = window.set_position(tauri::LogicalPosition::new(x, y));
-            }
-        }
-    }
-}

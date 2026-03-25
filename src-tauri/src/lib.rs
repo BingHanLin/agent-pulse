@@ -39,7 +39,7 @@ pub fn run() {
                 .app_data_dir()
                 .expect("Failed to get app data dir");
             let settings_store = SettingsStore::new(app_data_dir);
-            let initial_settings = settings_store.get_cloned();
+            let sound_enabled = settings_store.get().sound_on_complete;
             app.manage(Mutex::new(settings_store));
 
             // Initialize session manager
@@ -77,7 +77,6 @@ pub fn run() {
             // Process incoming events
             let session_manager_rx = app.state::<SessionManager>().inner().clone();
             let app_handle_rx = app_handle.clone();
-            let sound_enabled = initial_settings.sound_on_complete;
 
             tauri::async_runtime::spawn(async move {
                 while let Some(event) = rx.recv().await {
@@ -112,25 +111,6 @@ pub fn run() {
             // Setup system tray
             if let Err(e) = tray::setup_tray(app.handle()) {
                 eprintln!("Failed to setup tray: {}", e);
-            }
-
-            // Position window based on settings
-            if let Some(window) = app.get_webview_window("capsule") {
-                use settings::PanelPosition;
-                if let Ok(Some(monitor)) = window.primary_monitor() {
-                    let monitor_size = monitor.size();
-                    let scale = monitor.scale_factor();
-                    let monitor_w = monitor_size.width as f64 / scale;
-                    let monitor_h = monitor_size.height as f64 / scale;
-
-                    let (x, y) = match initial_settings.position {
-                        PanelPosition::TopCenter => ((monitor_w - 360.0) / 2.0, 8.0),
-                        PanelPosition::BottomLeft => (16.0, monitor_h - 60.0),
-                        PanelPosition::BottomRight => (monitor_w - 376.0, monitor_h - 60.0),
-                    };
-
-                    let _ = window.set_position(tauri::LogicalPosition::new(x, y));
-                }
             }
 
             Ok(())

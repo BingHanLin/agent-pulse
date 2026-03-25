@@ -5,18 +5,10 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    pub position: PanelPosition,
     pub accent_color: AccentColor,
     pub text_size: TextSize,
     pub sound_on_complete: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum PanelPosition {
-    TopCenter,
-    BottomLeft,
-    BottomRight,
+    pub theme: Theme,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -37,13 +29,20 @@ pub enum TextSize {
     Large,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    Dark,
+    Light,
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            position: PanelPosition::TopCenter,
             accent_color: AccentColor::Purple,
             text_size: TextSize::Medium,
             sound_on_complete: true,
+            theme: Theme::Dark,
         }
     }
 }
@@ -86,10 +85,6 @@ impl SettingsStore {
 
     pub fn update_field(&mut self, key: &str, value: &str) -> Result<(), String> {
         match key {
-            "position" => {
-                self.settings.position = serde_json::from_str(&format!("\"{}\"", value))
-                    .map_err(|_| format!("Invalid position: {}", value))?;
-            }
             "accentColor" => {
                 self.settings.accent_color = serde_json::from_str(&format!("\"{}\"", value))
                     .map_err(|_| format!("Invalid accent color: {}", value))?;
@@ -97,6 +92,10 @@ impl SettingsStore {
             "textSize" => {
                 self.settings.text_size = serde_json::from_str(&format!("\"{}\"", value))
                     .map_err(|_| format!("Invalid text size: {}", value))?;
+            }
+            "theme" => {
+                self.settings.theme = serde_json::from_str(&format!("\"{}\"", value))
+                    .map_err(|_| format!("Invalid theme: {}", value))?;
             }
             "soundOnComplete" => {
                 self.settings.sound_on_complete = value

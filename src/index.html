@@ -8,46 +8,30 @@
 </head>
 <body>
   <div id="capsule" class="capsule">
-    <!-- Collapsed capsule bar -->
-    <div class="capsule-bar" data-tauri-drag-region>
-      <div class="status-dot-container">
-        <div class="status-dot" id="statusDot"></div>
-        <div class="status-dot-pulse" id="statusDotPulse"></div>
-      </div>
-      <span class="project-name" id="projectName">ClaudePulse</span>
-      <span class="status-text" id="statusText">No sessions</span>
-      <span class="timer" id="timer"></span>
-      <span class="session-count" id="sessionCount" style="display:none"></span>
-      <button class="settings-btn" id="settingsBtn" title="Settings">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <!-- Title bar -->
+    <div class="title-bar" data-tauri-drag-region>
+      <span class="title-text" data-tauri-drag-region>Claude Pulse</span>
+      <button class="settings-btn" id="settingsBtn" title="Settings" aria-label="Open settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
           <circle cx="12" cy="12" r="3"/>
-          <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
         </svg>
       </button>
     </div>
 
-    <!-- Expanded session list -->
+    <!-- Session list (always visible) -->
     <div class="session-list" id="sessionList"></div>
 
     <!-- Settings panel -->
     <div class="settings-panel" id="settingsPanel" style="display:none">
       <div class="settings-section">
-        <label class="settings-label">Position</label>
-        <div class="settings-row">
-          <button class="pos-btn" data-pos="top-center">Top Center</button>
-          <button class="pos-btn" data-pos="bottom-left">Bottom Left</button>
-          <button class="pos-btn" data-pos="bottom-right">Bottom Right</button>
-        </div>
-      </div>
-
-      <div class="settings-section">
         <label class="settings-label">Accent Color</label>
         <div class="settings-row">
-          <button class="color-btn" data-color="purple" style="--btn-color: #a855f7"></button>
-          <button class="color-btn" data-color="cyan" style="--btn-color: #06b6d4"></button>
-          <button class="color-btn" data-color="green" style="--btn-color: #22c55e"></button>
-          <button class="color-btn" data-color="orange" style="--btn-color: #f97316"></button>
-          <button class="color-btn" data-color="pink" style="--btn-color: #ec4899"></button>
+          <button class="color-btn" data-color="purple" style="--btn-color: #a78bfa" aria-label="Purple accent"></button>
+          <button class="color-btn" data-color="cyan" style="--btn-color: #22d3ee" aria-label="Cyan accent"></button>
+          <button class="color-btn" data-color="green" style="--btn-color: #34d399" aria-label="Green accent"></button>
+          <button class="color-btn" data-color="orange" style="--btn-color: #fb923c" aria-label="Orange accent"></button>
+          <button class="color-btn" data-color="pink" style="--btn-color: #f472b6" aria-label="Pink accent"></button>
         </div>
       </div>
 
@@ -57,6 +41,14 @@
           <button class="size-btn" data-size="small">S</button>
           <button class="size-btn" data-size="medium">M</button>
           <button class="size-btn" data-size="large">L</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Theme</label>
+        <div class="settings-row">
+          <button class="theme-btn" data-theme="dark">Dark</button>
+          <button class="theme-btn" data-theme="light">Light</button>
         </div>
       </div>
 

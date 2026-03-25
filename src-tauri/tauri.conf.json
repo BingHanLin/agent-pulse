@@ -15,13 +15,14 @@
         "width": 360,
         "height": 52,
         "decorations": false,
-        "transparent": true,
+        "transparent": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "resizable": false,
-        "focus": false,
+        "focus": true,
         "center": true,
-        "y": 8
+        "y": 8,
+        "backgroundColor": [9, 9, 11, 255]
       }
     ],
     "security": {

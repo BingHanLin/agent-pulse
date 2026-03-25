@@ -4,20 +4,18 @@ const { listen } = window.__TAURI__.event;
 // State
 let sessions = [];
 let settings = {};
-let isExpanded = false;
 let showSettings = false;
-let hoverTimeout = null;
-let leaveTimeout = null;
 let timerInterval = null;
 let hooksInstalled = false;
 
+const ROW_HEIGHT = 44;
+const TITLE_HEIGHT = 36;
+const EMPTY_HEIGHT = 52;
+const SETTINGS_HEIGHT = 290;
+let lastHeight = null;
+
 // DOM refs
 const capsule = document.getElementById('capsule');
-const statusDot = document.getElementById('statusDot');
-const projectName = document.getElementById('projectName');
-const statusText = document.getElementById('statusText');
-const timer = document.getElementById('timer');
-const sessionCount = document.getElementById('sessionCount');
 const sessionList = document.getElementById('sessionList');
 const settingsPanel = document.getElementById('settingsPanel');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -25,13 +23,13 @@ const soundToggle = document.getElementById('soundToggle');
 const hookBtn = document.getElementById('hookBtn');
 const hookStatus = document.getElementById('hookStatus');
 
-// Color map
+// Color map — softer, more refined palette
 const accentColors = {
-  purple: '#a855f7',
-  cyan: '#06b6d4',
-  green: '#22c55e',
-  orange: '#f97316',
-  pink: '#ec4899',
+  purple: '#a78bfa',
+  cyan: '#22d3ee',
+  green: '#34d399',
+  orange: '#fb923c',
+  pink: '#f472b6',
 };
 
 const textScales = {
@@ -42,7 +40,7 @@ const textScales = {
 
 const stateLabels = {
   idle: 'Idle',
-  working: 'Working...',
+  working: 'Working',
   waitingForUser: 'Waiting',
   stale: 'Stale',
   stopped: 'Stopped',
@@ -59,7 +57,6 @@ async function init() {
   render();
   startTimer();
 
-  // Listen for backend events
   await listen('sessions-changed', (event) => {
     sessions = event.payload;
     render();
@@ -78,94 +75,49 @@ async function init() {
 
   await listen('show-settings', () => {
     showSettings = true;
-    setExpanded(true);
     renderSettings();
+    resizeWindow();
   });
 
   await listen('play-sound', () => {
     playCompleteSound();
   });
 
-  // Hover expand/collapse
-  capsule.addEventListener('mouseenter', () => {
-    clearTimeout(leaveTimeout);
-    hoverTimeout = setTimeout(() => {
-      if (sessions.length > 0) {
-        setExpanded(true);
-      }
-    }, 200);
-  });
-
-  capsule.addEventListener('mouseleave', () => {
-    clearTimeout(hoverTimeout);
-    leaveTimeout = setTimeout(() => {
-      if (!showSettings) {
-        setExpanded(false);
-      }
-    }, 400);
-  });
-
-  // Settings button
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     showSettings = !showSettings;
     if (showSettings) {
-      setExpanded(true);
       renderSettings();
     } else {
       settingsPanel.style.display = 'none';
     }
+    resizeWindow();
   });
 }
 
 // --- Rendering ---
 
 function render() {
-  const active = sessions.find(s => s.isActive) || sessions[0];
-
-  // Remove previous state classes
-  capsule.className = 'capsule';
-  if (isExpanded) capsule.classList.add('expanded');
-
-  if (active) {
-    capsule.classList.add('state-' + active.state);
-    projectName.textContent = active.projectName;
-    statusText.textContent = stateLabels[active.state] || active.state;
-    timer.textContent = formatElapsed(active.startTimeMs);
-    timer.style.display = '';
-  } else {
-    capsule.classList.add('state-idle');
-    projectName.textContent = 'ClaudePulse';
-    statusText.textContent = 'No sessions';
-    timer.textContent = '';
-    timer.style.display = 'none';
-  }
-
-  // Session count badge
-  if (sessions.length > 1) {
-    const running = sessions.filter(s => s.state === 'working' || s.state === 'waitingForUser').length;
-    sessionCount.textContent = `${running}/${sessions.length}`;
-    sessionCount.style.display = '';
-  } else {
-    sessionCount.style.display = 'none';
-  }
-
-  // Render session list
   renderSessionList();
+  resizeWindow();
 }
 
 function renderSessionList() {
   if (sessions.length === 0) {
-    sessionList.innerHTML = '<div class="no-sessions">No active sessions.<br>Start Claude Code to see activity here.</div>';
+    sessionList.innerHTML = '<div class="no-sessions">No active sessions</div>';
     return;
   }
 
   sessionList.innerHTML = sessions.map(s => {
     const dotColor = getDotColor(s.state);
-    const promptText = s.lastPrompt ? truncate(s.lastPrompt, 50) : (s.lastToolName ? `Tool: ${s.lastToolName}` : '');
+    const stateClass = 'row-state-' + s.state;
+    const promptText = s.lastPrompt ? truncate(s.lastPrompt, 40) : (s.lastToolName ? `Tool: ${s.lastToolName}` : '');
     return `
-      <div class="session-row ${s.isActive ? 'active' : ''}" data-id="${s.id}">
-        <div class="row-dot" style="background: ${dotColor}"></div>
+      <div class="session-row ${stateClass}" data-id="${s.id}">
+        <div class="row-dot-container">
+          <div class="row-dot" style="background: ${dotColor}"></div>
+          <div class="row-dot-pulse" style="background: ${dotColor}"></div>
+        </div>
         <div class="row-info">
           <div class="row-project">${escapeHtml(s.projectName)}</div>
           ${promptText ? `<div class="row-prompt">${escapeHtml(promptText)}</div>` : ''}
@@ -175,45 +127,30 @@ function renderSessionList() {
       </div>
     `;
   }).join('');
-
-  // Click handlers for session selection
-  sessionList.querySelectorAll('.session-row').forEach(row => {
-    row.addEventListener('click', () => {
-      invoke('select_session', { id: row.dataset.id });
-      // Optimistic update
-      sessions.forEach(s => s.isActive = s.id === row.dataset.id);
-      render();
-    });
-  });
 }
 
 function renderSettings() {
   settingsPanel.style.display = '';
 
-  // Position buttons
-  document.querySelectorAll('.pos-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.pos === settings.position);
-    btn.onclick = () => setSetting('position', btn.dataset.pos);
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === settings.theme);
+    btn.onclick = () => setSetting('theme', btn.dataset.theme);
   });
 
-  // Color buttons
   document.querySelectorAll('.color-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.color === settings.accentColor);
     btn.onclick = () => setSetting('accentColor', btn.dataset.color);
   });
 
-  // Size buttons
   document.querySelectorAll('.size-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.size === settings.textSize);
     btn.onclick = () => setSetting('textSize', btn.dataset.size);
   });
 
-  // Sound toggle
   soundToggle.textContent = settings.soundOnComplete ? 'On' : 'Off';
   soundToggle.classList.toggle('on', settings.soundOnComplete);
   soundToggle.onclick = () => setSetting('soundOnComplete', (!settings.soundOnComplete).toString());
 
-  // Hook button
   renderHookStatus();
   hookBtn.onclick = async () => {
     if (hooksInstalled) {
@@ -230,19 +167,40 @@ function renderHookStatus() {
   hookStatus.className = 'hook-status' + (hooksInstalled ? ' installed' : '');
 }
 
+// --- Window resize ---
+
+async function resizeWindow() {
+  let height = TITLE_HEIGHT;
+  if (sessions.length === 0) {
+    height += EMPTY_HEIGHT;
+  } else {
+    height += sessions.length * ROW_HEIGHT + 8;
+  }
+  if (showSettings) {
+    height += SETTINGS_HEIGHT;
+  }
+  if (height === lastHeight) return;
+  lastHeight = height;
+  await invoke('set_expanded', { height });
+}
+
 // --- Settings ---
 
 function applySettings() {
+  // Theme
+  document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
+
   // Accent color
   const color = accentColors[settings.accentColor] || accentColors.purple;
   document.documentElement.style.setProperty('--accent', color);
-  document.documentElement.style.setProperty(
-    '--accent-glow',
-    color.replace(')', ', 0.4)').replace('rgb', 'rgba')
-  );
-  document.documentElement.style.setProperty('--bg-session-active',
-    color.replace(')', ', 0.15)').replace('rgb', 'rgba')
-  );
+
+  // Update accent-derived tokens
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  document.documentElement.style.setProperty('--accent-dim', `rgba(${r}, ${g}, ${b}, 0.15)`);
+  document.documentElement.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.25)`);
+  document.documentElement.style.setProperty('--ring-focus', `rgba(${r}, ${g}, ${b}, 0.5)`);
 
   // Text size
   const scale = textScales[settings.textSize] || 1.0;
@@ -251,7 +209,6 @@ function applySettings() {
 
 async function setSetting(key, value) {
   await invoke('set_setting', { key, value });
-  // Optimistic update
   if (key === 'soundOnComplete') {
     settings[key] = value === 'true';
   } else {
@@ -259,21 +216,6 @@ async function setSetting(key, value) {
   }
   applySettings();
   renderSettings();
-}
-
-// --- Expand/Collapse ---
-
-async function setExpanded(expanded) {
-  if (isExpanded === expanded) return;
-  isExpanded = expanded;
-
-  if (!expanded) {
-    showSettings = false;
-    settingsPanel.style.display = 'none';
-  }
-
-  capsule.classList.toggle('expanded', expanded);
-  await invoke('set_expanded', { expanded });
 }
 
 // --- Helpers ---
@@ -288,18 +230,18 @@ function formatElapsed(startTimeMs) {
 
 function getDotColor(state) {
   const colors = {
-    idle: 'rgba(161, 161, 170, 0.8)',
+    idle: getComputedStyle(document.documentElement).getPropertyValue('--color-idle').trim(),
     working: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
-    waitingForUser: '#f59e0b',
-    stale: 'rgba(113, 113, 122, 0.6)',
-    stopped: 'rgba(239, 68, 68, 0.7)',
+    waitingForUser: getComputedStyle(document.documentElement).getPropertyValue('--color-waiting').trim(),
+    stale: getComputedStyle(document.documentElement).getPropertyValue('--color-stale').trim(),
+    stopped: getComputedStyle(document.documentElement).getPropertyValue('--color-stopped').trim(),
   };
   return colors[state] || colors.idle;
 }
 
 function truncate(str, maxLen) {
   if (!str) return '';
-  return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+  return str.length > maxLen ? str.substring(0, maxLen) + '\u2026' : str;
 }
 
 function escapeHtml(str) {
@@ -310,11 +252,6 @@ function escapeHtml(str) {
 
 function startTimer() {
   timerInterval = setInterval(() => {
-    const active = sessions.find(s => s.isActive) || sessions[0];
-    if (active) {
-      timer.textContent = formatElapsed(active.startTimeMs);
-    }
-    // Update session row timers
     sessionList.querySelectorAll('.session-row').forEach(row => {
       const session = sessions.find(s => s.id === row.dataset.id);
       if (session) {
@@ -328,22 +265,25 @@ function startTimer() {
 function playCompleteSound() {
   if (!settings.soundOnComplete) return;
   try {
-    // Simple beep using Web Audio API
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.frequency.value = 880;
-    oscillator.type = 'sine';
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.5);
-  } catch (e) {
-    // Silently ignore audio errors
-  }
+    const now = ctx.currentTime;
+
+    // Two-tone chime: rising interval
+    const notes = [660, 880];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      const start = now + i * 0.12;
+      gain.gain.setValueAtTime(0.25, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    });
+  } catch (e) {}
 }
 
-// Start
 init();
