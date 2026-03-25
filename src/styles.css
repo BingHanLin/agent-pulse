@@ -280,6 +280,8 @@ html, body {
 .settings-panel {
   padding: 6px 12px 14px;
   border-top: 1px solid var(--border-subtle);
+  max-height: 270px;
+  overflow-y: auto;
 }
 
 .settings-section {
