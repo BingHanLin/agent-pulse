@@ -19,16 +19,46 @@ fn settings_path() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".claude").join("settings.json"))
 }
 
-fn make_hook_entry(port: u16) -> Value {
+fn helper_script_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".claude").join("claude-pulse-hook.sh"))
+}
+
+/// Shell script that injects the parent's Windows PID into the hook JSON.
+fn helper_script_content(port: u16) -> String {
+    format!(
+        r#"#!/bin/bash
+# Claude Pulse hook helper — injects PID and forwards to webhook server
+if [ -f "/proc/$$/winpid" ]; then
+  MYWPID=$(cat /proc/$$/winpid)
+  # Walk up the process tree to find claude.exe
+  CPID=$(powershell.exe -NoProfile -Command "
+    \$p = $MYWPID
+    for (\$i = 0; \$i -lt 10; \$i++) {{
+      \$proc = Get-CimInstance Win32_Process -Filter ('ProcessId='+\$p) -EA SilentlyContinue
+      if (-not \$proc) {{ break }}
+      if (\$proc.Name -match 'claude') {{ \$proc.ProcessId; break }}
+      \$p = \$proc.ParentProcessId
+    }}
+  " 2>/dev/null | tr -dc '0-9')
+else
+  CPID=$PPID
+fi
+sed "s/}}$/,\"pid\":${{CPID:-0}}}}/" | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
+"#
+    )
+}
+
+fn make_hook_entry() -> Value {
+    let script_path = helper_script_path()
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+
     serde_json::json!({
         "matcher": "",
         "hooks": [
             {
                 "type": "command",
-                "command": format!(
-                    "curl -s -X POST http://127.0.0.1:{} -H \"Content-Type: application/json\" -d @-",
-                    port
-                )
+                "command": format!("bash \"{}\"", script_path)
             }
         ]
     })
@@ -39,7 +69,7 @@ fn is_our_hook(entry: &Value) -> bool {
         hooks.iter().any(|hook| {
             hook.get("command")
                 .and_then(|c| c.as_str())
-                .map(|c| c.contains(HOOK_MARKER))
+                .map(|c| c.contains(HOOK_MARKER) || c.contains("claude-pulse-hook"))
                 .unwrap_or(false)
         })
     } else {
@@ -54,6 +84,12 @@ pub fn install_hooks(port: u16) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create .claude dir: {}", e))?;
     }
+
+    // Write helper script
+    let script_path =
+        helper_script_path().ok_or("Could not determine helper script path")?;
+    fs::write(&script_path, helper_script_content(port))
+        .map_err(|e| format!("Failed to write hook helper script: {}", e))?;
 
     // Read existing settings or start fresh
     let mut settings: Value = if path.exists() {
@@ -70,25 +106,21 @@ pub fn install_hooks(port: u16) -> Result<(), String> {
         settings["hooks"] = serde_json::json!({});
     }
 
-    let hook_entry = make_hook_entry(port);
+    let hook_entry = make_hook_entry();
 
     for event_name in HOOK_EVENTS {
         let hooks_obj = settings["hooks"].as_object_mut().unwrap();
 
         if let Some(event_hooks) = hooks_obj.get_mut(*event_name) {
             if let Some(arr) = event_hooks.as_array_mut() {
-                // Remove any existing ClaudePulse hooks (idempotent)
                 arr.retain(|entry| !is_our_hook(entry));
-                // Add our hook
                 arr.push(hook_entry.clone());
             }
         } else {
-            // Create new array with our hook
             hooks_obj.insert(event_name.to_string(), serde_json::json!([hook_entry]));
         }
     }
 
-    // Write atomically (write to temp, rename)
     let content = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
@@ -105,6 +137,11 @@ pub fn install_hooks(port: u16) -> Result<(), String> {
 pub fn remove_hooks() -> Result<(), String> {
     let path = settings_path().ok_or("Could not determine home directory")?;
 
+    // Remove helper script
+    if let Some(script_path) = helper_script_path() {
+        let _ = fs::remove_file(script_path);
+    }
+
     if !path.exists() {
         return Ok(());
     }
@@ -119,7 +156,6 @@ pub fn remove_hooks() -> Result<(), String> {
             if let Some(event_hooks) = hooks.get_mut(*event_name) {
                 if let Some(arr) = event_hooks.as_array_mut() {
                     arr.retain(|entry| !is_our_hook(entry));
-                    // Remove empty arrays
                     if arr.is_empty() {
                         hooks.remove(*event_name);
                     }
@@ -127,7 +163,6 @@ pub fn remove_hooks() -> Result<(), String> {
             }
         }
 
-        // Remove empty hooks object
         if hooks.is_empty() {
             settings.as_object_mut().unwrap().remove("hooks");
         }
@@ -162,7 +197,6 @@ pub fn is_hooks_installed() -> bool {
     };
 
     if let Some(hooks) = settings.get("hooks").and_then(|h| h.as_object()) {
-        // Check if at least one event has our hook
         hooks.values().any(|event_hooks| {
             event_hooks
                 .as_array()
@@ -184,7 +218,19 @@ mod tests {
             "matcher": "",
             "hooks": [{
                 "type": "command",
-                "command": "curl -s -X POST http://127.0.0.1:19280 -H \"Content-Type: application/json\" -d @-"
+                "command": "bash \"/home/user/.claude/claude-pulse-hook.sh\""
+            }]
+        });
+        assert!(is_our_hook(&hook));
+    }
+
+    #[test]
+    fn test_is_our_hook_legacy() {
+        let hook = serde_json::json!({
+            "matcher": "",
+            "hooks": [{
+                "type": "command",
+                "command": "curl -s -X POST http://127.0.0.1:19280 -d @-"
             }]
         });
         assert!(is_our_hook(&hook));
@@ -204,9 +250,8 @@ mod tests {
 
     #[test]
     fn test_make_hook_entry() {
-        let entry = make_hook_entry(19280);
+        let entry = make_hook_entry();
         let cmd = entry["hooks"][0]["command"].as_str().unwrap();
-        assert!(cmd.contains("127.0.0.1:19280"));
-        assert!(cmd.contains("curl"));
+        assert!(cmd.contains("claude-pulse-hook"));
     }
 }

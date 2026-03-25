@@ -126,38 +126,35 @@ impl SessionManager {
         }
     }
 
-    fn resolve_pid(&self, project_path: &str) -> Option<u32> {
-        if project_path.is_empty() {
-            return None;
-        }
-        match self.process_monitor.lock() {
-            Ok(mut monitor) => monitor.find_claude_pid(project_path),
-            Err(_) => None,
-        }
-    }
-
     pub fn handle_event(&self, event: &HookEvent) -> bool {
         let name = event.hook_event_name.as_str();
-
-        // Resolve PID before locking sessions (to avoid holding two locks)
-        let pid = if name == "SessionStart" || (name == "UserPromptSubmit" && !self.has_session(&event.session_id)) {
-            let path = event.cwd.as_deref().unwrap_or("");
-            self.resolve_pid(path)
-        } else {
-            None
-        };
-
+        // Treat 0 and 1 as invalid (MSYS init PID on Windows)
+        let valid_pid = event.pid.filter(|&p| p > 1);
         let mut sessions = self.sessions.lock().unwrap();
 
-        match name {
+        // Auto-create session if it doesn't exist (for any event type)
+        if !sessions.contains_key(&event.session_id) && name != "SessionEnd" {
+            let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid);
+            sessions.insert(event.session_id.clone(), session);
+        }
+
+        // Backfill PID from event if session doesn't have one yet
+        if let Some(event_pid) = valid_pid {
+            if let Some(session) = sessions.get_mut(&event.session_id) {
+                if session.pid.is_none() {
+                    session.pid = Some(event_pid);
+                }
+            }
+        }
+
+        let changed = match name {
             "SessionStart" => {
-                let session = Session::new(event.session_id.clone(), event.cwd.clone(), pid);
+                let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid);
                 sessions.insert(event.session_id.clone(), session);
                 true
             }
             "SessionEnd" => {
                 sessions.remove(&event.session_id);
-                // Clear selection if removed
                 let mut selected = self.selected_session.lock().unwrap();
                 if selected.as_ref() == Some(&event.session_id) {
                     *selected = None;
@@ -173,14 +170,7 @@ impl SessionManager {
                     }
                     true
                 } else {
-                    // Auto-create session if we missed the SessionStart
-                    let mut session = Session::new(event.session_id.clone(), event.cwd.clone(), pid);
-                    session.state = SessionState::Working;
-                    if let Some(prompt) = &event.prompt {
-                        session.last_prompt = Some(prompt.clone());
-                    }
-                    sessions.insert(event.session_id.clone(), session);
-                    true
+                    false
                 }
             }
             "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
@@ -214,11 +204,9 @@ impl SessionManager {
                 }
             }
             _ => false,
-        }
-    }
+        };
 
-    fn has_session(&self, session_id: &str) -> bool {
-        self.sessions.lock().unwrap().contains_key(session_id)
+        changed
     }
 
     /// Check for stale/dead sessions. Returns true if any sessions changed.
@@ -335,6 +323,7 @@ mod tests {
             tool_name: None,
             notification_type: None,
             prompt: None,
+            pid: None,
         }
     }
 

@@ -16,6 +16,8 @@ pub struct HookEvent {
     pub notification_type: Option<String>,
     #[serde(default)]
     pub prompt: Option<String>,
+    #[serde(default)]
+    pub pid: Option<u32>,
 }
 
 pub struct WebhookServer {
