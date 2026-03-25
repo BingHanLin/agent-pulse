@@ -28,21 +28,45 @@ fn helper_script_content(port: u16) -> String {
     format!(
         r#"#!/bin/bash
 # Claude Pulse hook helper — injects PID and forwards to webhook server
-if [ -f "/proc/$$/winpid" ]; then
-  MYWPID=$(cat /proc/$$/winpid)
-  # Walk up the process tree to find claude.exe
-  CPID=$(powershell.exe -NoProfile -Command "
-    \$p = $MYWPID
-    for (\$i = 0; \$i -lt 10; \$i++) {{
-      \$proc = Get-CimInstance Win32_Process -Filter ('ProcessId='+\$p) -EA SilentlyContinue
-      if (-not \$proc) {{ break }}
-      if (\$proc.Name -match 'claude') {{ \$proc.ProcessId; break }}
-      \$p = \$proc.ParentProcessId
-    }}
-  " 2>/dev/null | tr -dc '0-9')
-else
-  CPID=$PPID
-fi
+
+# Walk up the process tree to find the claude process PID
+find_claude_pid() {{
+  if [ -f "/proc/$$/winpid" ]; then
+    # Windows (Git Bash/MSYS): use PowerShell to walk process tree
+    local MYWPID=$(cat /proc/$$/winpid)
+    powershell.exe -NoProfile -Command "
+      \$p = $MYWPID
+      for (\$i = 0; \$i -lt 10; \$i++) {{
+        \$proc = Get-CimInstance Win32_Process -Filter ('ProcessId='+\$p) -EA SilentlyContinue
+        if (-not \$proc) {{ break }}
+        if (\$proc.Name -match 'claude') {{ \$proc.ProcessId; break }}
+        \$p = \$proc.ParentProcessId
+      }}
+    " 2>/dev/null | tr -dc '0-9'
+  elif [ -d "/proc/$PPID" ]; then
+    # Linux: walk /proc to find claude ancestor
+    local P=$PPID
+    for _ in $(seq 1 10); do
+      [ -d "/proc/$P" ] || break
+      local NAME=$(cat /proc/$P/comm 2>/dev/null)
+      if echo "$NAME" | grep -qi claude; then echo "$P"; return; fi
+      P=$(awk '{{print $4}}' /proc/$P/stat 2>/dev/null)
+      [ -z "$P" ] || [ "$P" = "0" ] || [ "$P" = "1" ] && break
+    done
+  else
+    # macOS: walk process tree via ps
+    local P=$PPID
+    for _ in $(seq 1 10); do
+      local NAME=$(ps -p "$P" -o comm= 2>/dev/null)
+      [ -z "$NAME" ] && break
+      if echo "$NAME" | grep -qi claude; then echo "$P"; return; fi
+      P=$(ps -p "$P" -o ppid= 2>/dev/null | tr -dc '0-9')
+      [ -z "$P" ] || [ "$P" = "0" ] || [ "$P" = "1" ] && break
+    done
+  fi
+}}
+
+CPID=$(find_claude_pid)
 sed "s/}}$/,\"pid\":${{CPID:-0}}}}/" | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
 "#
     )
