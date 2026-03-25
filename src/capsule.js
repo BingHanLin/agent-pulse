@@ -76,6 +76,7 @@ async function init() {
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     showSettings = !showSettings;
+    settingsBtn.classList.toggle('open', showSettings);
     if (showSettings) {
       renderSettings();
     } else {

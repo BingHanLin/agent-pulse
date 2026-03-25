@@ -110,6 +110,30 @@ html, body {
   border-radius: 6px;
   transition: color 0.2s ease, background 0.2s ease;
   flex-shrink: 0;
+  position: relative;
+  width: 26px;
+  height: 26px;
+}
+
+.settings-btn .icon-gear,
+.settings-btn .icon-chevron {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  transform-origin: 12px 12px;
+}
+
+.settings-btn .icon-chevron {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.settings-btn.open .icon-gear {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.5);
+}
+
+.settings-btn.open .icon-chevron {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .settings-btn:hover {
