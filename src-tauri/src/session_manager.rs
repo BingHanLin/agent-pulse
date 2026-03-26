@@ -503,10 +503,10 @@ mod tests {
     fn test_session_end_removes() {
         let mgr = SessionManager::new();
         mgr.handle_event(&make_event("s1", "SessionStart", Some("/project")));
-        assert_eq!(mgr.session_count(), 1);
+        assert_eq!(mgr.get_sessions().len(), 1);
 
         mgr.handle_event(&make_event("s1", "SessionEnd", None));
-        assert_eq!(mgr.session_count(), 0);
+        assert_eq!(mgr.get_sessions().len(), 0);
     }
 
     #[test]
@@ -514,7 +514,7 @@ mod tests {
         let mgr = SessionManager::new();
         mgr.handle_event(&make_event("s1", "SessionStart", Some("/project-a")));
         mgr.handle_event(&make_event("s2", "SessionStart", Some("/project-b")));
-        assert_eq!(mgr.session_count(), 2);
+        assert_eq!(mgr.get_sessions().len(), 2);
     }
 
     #[test]
@@ -533,7 +533,7 @@ mod tests {
         event.prompt = Some("hello".to_string());
         mgr.handle_event(&event);
 
-        assert_eq!(mgr.session_count(), 1);
+        assert_eq!(mgr.get_sessions().len(), 1);
         assert_eq!(mgr.get_sessions()[0].state, SessionState::Working);
     }
 }
