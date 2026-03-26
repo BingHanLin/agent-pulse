@@ -39,7 +39,7 @@ find_claude_pid() {{
       for (\$i = 0; \$i -lt 10; \$i++) {{
         \$proc = Get-CimInstance Win32_Process -Filter ('ProcessId='+\$p) -EA SilentlyContinue
         if (-not \$proc) {{ break }}
-        if (\$proc.Name -match 'claude' -or \$proc.CommandLine -match 'claude') {{ \$proc.ProcessId; break }}
+        if (\$proc.Name -match 'claude' -or \$proc.CommandLine -match 'claude-code') {{ \$proc.ProcessId; break }}
         \$p = \$proc.ParentProcessId
       }}
     " 2>/dev/null | tr -dc '0-9'
@@ -51,7 +51,7 @@ find_claude_pid() {{
       local NAME=$(cat /proc/$P/comm 2>/dev/null)
       local CMDL=$(tr '\0' ' ' < /proc/$P/cmdline 2>/dev/null)
       if echo "$NAME" | grep -qi claude; then echo "$P"; return; fi
-      if echo "$CMDL" | grep -qi claude; then echo "$P"; return; fi
+      if echo "$CMDL" | grep -qi claude-code; then echo "$P"; return; fi
       P=$(awk '{{print $4}}' /proc/$P/stat 2>/dev/null)
       [ -z "$P" ] || [ "$P" = "0" ] || [ "$P" = "1" ] && break
     done
@@ -63,7 +63,7 @@ find_claude_pid() {{
       [ -z "$NAME" ] && break
       if echo "$NAME" | grep -qi claude; then echo "$P"; return; fi
       local ARGS=$(ps -p "$P" -o args= 2>/dev/null)
-      if echo "$ARGS" | grep -qi claude; then echo "$P"; return; fi
+      if echo "$ARGS" | grep -qi claude-code; then echo "$P"; return; fi
       P=$(ps -p "$P" -o ppid= 2>/dev/null | tr -dc '0-9')
       [ -z "$P" ] || [ "$P" = "0" ] || [ "$P" = "1" ] && break
     done
