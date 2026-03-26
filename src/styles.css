@@ -510,6 +510,13 @@ html, body {
   padding-top: 10px;
 }
 
+/* ---- Provider List (Integrations) ---- */
+#providerList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ---- Hook Status ---- */
 .hook-status {
   font-size: var(--font-xs);
