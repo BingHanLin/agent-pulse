@@ -1,4 +1,5 @@
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     AppHandle, Emitter, Manager,
@@ -13,7 +14,11 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let menu = Menu::with_items(app, &[&show_hide, &sep1, &settings, &sep2, &quit])?;
 
+    let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))?;
+
     let _tray = TrayIconBuilder::new()
+        .icon(icon)
+        .icon_as_template(true)
         .menu(&menu)
         .tooltip("AgentPulse")
         .on_menu_event(move |app, event| {
