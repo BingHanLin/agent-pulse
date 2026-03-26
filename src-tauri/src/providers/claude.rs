@@ -250,7 +250,7 @@ impl HookProvider for ClaudeCodeProvider {
             hooks.values().any(|event_hooks| {
                 event_hooks
                     .as_array()
-                    .map(|arr| arr.iter().any(|entry| is_our_hook(entry)))
+                    .map(|arr| arr.iter().any(is_our_hook))
                     .unwrap_or(false)
             })
         } else {

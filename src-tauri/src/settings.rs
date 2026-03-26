@@ -72,11 +72,6 @@ impl SettingsStore {
         self.settings.clone()
     }
 
-    pub fn update(&mut self, settings: Settings) -> Result<(), String> {
-        self.settings = settings;
-        self.save()
-    }
-
     pub fn reset(&mut self) {
         self.settings = Settings::default();
         let _ = self.save();

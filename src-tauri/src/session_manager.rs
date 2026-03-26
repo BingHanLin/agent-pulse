@@ -355,10 +355,6 @@ impl SessionManager {
             .map(|s| s.id.clone())
     }
 
-    pub fn session_count(&self) -> usize {
-        self.sessions.lock().unwrap().len()
-    }
-
     /// Returns true if a Stop event just occurred (for playing sound)
     pub fn is_stop_event(event: &HookEvent) -> bool {
         event.hook_event_name == "Stop"
