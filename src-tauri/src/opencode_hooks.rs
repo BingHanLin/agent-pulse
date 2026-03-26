@@ -123,9 +123,10 @@ pub fn install_opencode_plugin(port: u16) -> Result<(), String> {
 
 pub fn remove_opencode_plugin() -> Result<(), String> {
     if let Some(path) = plugin_path() {
-        if path.exists() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to remove OpenCode plugin: {}", e))?;
+        match fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("Failed to remove OpenCode plugin: {}", e)),
         }
     }
     println!("OpenCode plugin removed");

@@ -41,10 +41,12 @@ const stateLabels = {
 // --- Initialization ---
 
 async function init() {
-  settings = await invoke('get_settings');
-  hooksInstalled = await invoke('get_hook_status');
-  opencodeHooksInstalled = await invoke('get_opencode_hook_status');
-  sessions = await invoke('get_sessions');
+  [settings, hooksInstalled, opencodeHooksInstalled, sessions] = await Promise.all([
+    invoke('get_settings'),
+    invoke('get_hook_status'),
+    invoke('get_opencode_hook_status'),
+    invoke('get_sessions'),
+  ]);
 
   applySettings();
   render();
@@ -154,35 +156,29 @@ function renderSettings() {
   soundToggle.onclick = () => setSetting('soundOnComplete', (!settings.soundOnComplete).toString());
 
   renderHookStatus();
-  hookBtn.onclick = async () => {
-    if (hooksInstalled) {
-      await invoke('remove_hooks');
-    } else {
-      await invoke('configure_hooks');
-    }
-  };
-
-  opencodeHookBtn.onclick = async () => {
-    if (opencodeHooksInstalled) {
-      await invoke('remove_opencode_hooks');
-    } else {
-      await invoke('configure_opencode_hooks');
-    }
-  };
+  bindHookToggle(hookBtn, () => hooksInstalled, 'configure_hooks', 'remove_hooks');
+  bindHookToggle(opencodeHookBtn, () => opencodeHooksInstalled, 'configure_opencode_hooks', 'remove_opencode_hooks');
 
   document.getElementById('resetBtn').onclick = async () => {
     await invoke('reset_settings');
   };
 }
 
-function renderHookStatus() {
-  hookBtn.textContent = hooksInstalled ? 'Remove' : 'Configure';
-  hookStatus.textContent = hooksInstalled ? 'Installed' : 'Not installed';
-  hookStatus.className = 'hook-status' + (hooksInstalled ? ' installed' : '');
+function updateHookRow(btn, statusEl, installed) {
+  btn.textContent = installed ? 'Remove' : 'Configure';
+  statusEl.textContent = installed ? 'Installed' : 'Not installed';
+  statusEl.className = 'hook-status' + (installed ? ' installed' : '');
+}
 
-  opencodeHookBtn.textContent = opencodeHooksInstalled ? 'Remove' : 'Configure';
-  opencodeHookStatus.textContent = opencodeHooksInstalled ? 'Installed' : 'Not installed';
-  opencodeHookStatus.className = 'hook-status' + (opencodeHooksInstalled ? ' installed' : '');
+function renderHookStatus() {
+  updateHookRow(hookBtn, hookStatus, hooksInstalled);
+  updateHookRow(opencodeHookBtn, opencodeHookStatus, opencodeHooksInstalled);
+}
+
+function bindHookToggle(btn, isInstalledFn, installCmd, removeCmd) {
+  btn.onclick = async () => {
+    await invoke(isInstalledFn() ? removeCmd : installCmd);
+  };
 }
 
 // --- Window resize ---

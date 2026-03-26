@@ -134,12 +134,12 @@ impl SessionManager {
         let name = event.hook_event_name.as_str();
         // Treat 0 and 1 as invalid (MSYS init PID on Windows)
         let valid_pid = event.pid.filter(|&p| p > 1);
-        let source = event.source.clone().unwrap_or_else(|| "claude".to_string());
         let mut sessions = self.sessions.lock().unwrap();
 
         // Auto-create session if it doesn't exist (for any event type)
         if !sessions.contains_key(&event.session_id) && name != "SessionEnd" {
-            let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source.clone());
+            let source = event.source.clone().unwrap_or_else(|| "claude".to_string());
+            let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source);
             sessions.insert(event.session_id.clone(), session);
         }
 
@@ -154,7 +154,8 @@ impl SessionManager {
 
         let changed = match name {
             "SessionStart" => {
-                let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source.clone());
+                let source = event.source.clone().unwrap_or_else(|| "claude".to_string());
+                let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source);
                 sessions.insert(event.session_id.clone(), session);
                 true
             }
