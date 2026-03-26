@@ -50,9 +50,8 @@ impl WebhookServer {
             }
         }
 
-        let listener = listener_opt.ok_or_else(|| {
-            "Failed to bind to any port in range 19280-19289".to_string()
-        })?;
+        let listener = listener_opt
+            .ok_or_else(|| "Failed to bind to any port in range 19280-19289".to_string())?;
 
         println!("Webhook server listening on 127.0.0.1:{}", bound_port);
 

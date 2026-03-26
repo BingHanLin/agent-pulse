@@ -118,8 +118,7 @@ impl SettingsStore {
         }
         let content = serde_json::to_string_pretty(&self.settings)
             .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-        fs::write(&self.path, content)
-            .map_err(|e| format!("Failed to write settings: {}", e))?;
+        fs::write(&self.path, content).map_err(|e| format!("Failed to write settings: {}", e))?;
         Ok(())
     }
 }

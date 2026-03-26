@@ -39,7 +39,10 @@ impl ProviderRegistry {
     }
 
     pub fn get(&self, id: &str) -> Option<&dyn HookProvider> {
-        self.providers.iter().find(|p| p.id() == id).map(|p| p.as_ref())
+        self.providers
+            .iter()
+            .find(|p| p.id() == id)
+            .map(|p| p.as_ref())
     }
 
     pub fn list(&self) -> Vec<ProviderInfo> {

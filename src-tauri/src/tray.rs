@@ -11,10 +11,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let sep2 = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-    let menu = Menu::with_items(
-        app,
-        &[&show_hide, &sep1, &settings, &sep2, &quit],
-    )?;
+    let menu = Menu::with_items(app, &[&show_hide, &sep1, &settings, &sep2, &quit])?;
 
     let _tray = TrayIconBuilder::new()
         .menu(&menu)
