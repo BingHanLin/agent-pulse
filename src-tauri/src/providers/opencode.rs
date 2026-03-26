@@ -1,3 +1,4 @@
+use super::HookProvider;
 use std::fs;
 use std::path::PathBuf;
 
@@ -109,33 +110,53 @@ export const AgentPulse = async ({{ directory }}) => {{
     )
 }
 
-pub fn install_opencode_plugin(port: u16) -> Result<(), String> {
-    let dir = plugin_dir().ok_or("Could not determine config directory")?;
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create OpenCode plugins dir: {}", e))?;
+pub struct OpenCodeProvider;
 
-    let path = dir.join(PLUGIN_FILENAME);
-    fs::write(&path, plugin_content(port))
-        .map_err(|e| format!("Failed to write OpenCode plugin: {}", e))?;
-
-    println!("OpenCode plugin installed at {:?}", path);
-    Ok(())
-}
-
-pub fn remove_opencode_plugin() -> Result<(), String> {
-    if let Some(path) = plugin_path() {
-        match fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(format!("Failed to remove OpenCode plugin: {}", e)),
-        }
+impl HookProvider for OpenCodeProvider {
+    fn id(&self) -> &str {
+        "opencode"
     }
-    println!("OpenCode plugin removed");
-    Ok(())
-}
 
-pub fn is_opencode_plugin_installed() -> bool {
-    plugin_path().map(|p| p.exists()).unwrap_or(false)
+    fn display_name(&self) -> &str {
+        "OpenCode"
+    }
+
+    fn badge_label(&self) -> &str {
+        "OC"
+    }
+
+    fn badge_color(&self) -> &str {
+        "#34d399"
+    }
+
+    fn install(&self, port: u16) -> Result<(), String> {
+        let dir = plugin_dir().ok_or("Could not determine config directory")?;
+        fs::create_dir_all(&dir)
+            .map_err(|e| format!("Failed to create OpenCode plugins dir: {}", e))?;
+
+        let path = dir.join(PLUGIN_FILENAME);
+        fs::write(&path, plugin_content(port))
+            .map_err(|e| format!("Failed to write OpenCode plugin: {}", e))?;
+
+        println!("OpenCode plugin installed at {:?}", path);
+        Ok(())
+    }
+
+    fn remove(&self) -> Result<(), String> {
+        if let Some(path) = plugin_path() {
+            match fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(format!("Failed to remove OpenCode plugin: {}", e)),
+            }
+        }
+        println!("OpenCode plugin removed");
+        Ok(())
+    }
+
+    fn is_installed(&self) -> bool {
+        plugin_path().map(|p| p.exists()).unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
@@ -155,5 +176,12 @@ mod tests {
             assert!(path.to_string_lossy().contains("opencode"));
             assert!(path.to_string_lossy().contains(PLUGIN_FILENAME));
         }
+    }
+
+    #[test]
+    fn test_provider_metadata() {
+        let p = OpenCodeProvider;
+        assert_eq!(p.id(), "opencode");
+        assert_eq!(p.badge_label(), "OC");
     }
 }

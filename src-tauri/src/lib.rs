@@ -1,12 +1,12 @@
 mod commands;
-mod hooks_config;
-mod opencode_hooks;
 mod process_monitor;
+mod providers;
 mod session_manager;
 mod settings;
 mod tray;
 mod webhook_server;
 
+use providers::ProviderRegistry;
 use session_manager::SessionManager;
 use settings::SettingsStore;
 use std::sync::Mutex;
@@ -25,12 +25,9 @@ pub fn run() {
             commands::get_settings,
             commands::set_setting,
             commands::reset_settings,
-            commands::configure_hooks,
-            commands::remove_hooks,
-            commands::get_hook_status,
-            commands::configure_opencode_hooks,
-            commands::remove_opencode_hooks,
-            commands::get_opencode_hook_status,
+            commands::get_providers,
+            commands::configure_provider,
+            commands::remove_provider,
             commands::get_server_port,
             commands::set_expanded,
         ])
@@ -50,6 +47,10 @@ pub fn run() {
             let session_manager = SessionManager::new();
             app.manage(session_manager.clone());
 
+            // Initialize provider registry
+            let registry = providers::create_registry();
+            app.manage(Mutex::new(registry));
+
             // Start webhook server
             let (tx, mut rx) = mpsc::unbounded_channel();
             let app_handle_server = app_handle.clone();
@@ -66,16 +67,21 @@ pub fn run() {
                 // Store the port
                 app_handle_server.manage(ServerPort(server.port()));
 
-                // Auto-configure hooks if not already installed
-                if !hooks_config::is_hooks_installed() {
-                    if let Err(e) = hooks_config::install_hooks(server.port()) {
-                        eprintln!("Failed to auto-configure hooks: {}", e);
+                // Auto-configure providers that aren't installed yet
+                let registry = app_handle_server.state::<Mutex<ProviderRegistry>>();
+                let reg = registry.lock().unwrap();
+                for provider in reg.list() {
+                    if !provider.installed {
+                        if let Some(p) = reg.get(&provider.id) {
+                            if let Err(e) = p.install(server.port()) {
+                                eprintln!("Failed to auto-configure {}: {}", provider.id, e);
+                            }
+                        }
                     }
                 }
             });
 
             // Manage a default ServerPort (will be overwritten by the async task)
-            // This is needed so State<ServerPort> is available immediately
             app.manage(ServerPort(19280));
 
             // Process incoming events

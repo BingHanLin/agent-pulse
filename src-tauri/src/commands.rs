@@ -1,5 +1,4 @@
-use crate::hooks_config;
-use crate::opencode_hooks;
+use crate::providers::{ProviderInfo, ProviderRegistry};
 use crate::session_manager::{SessionInfo, SessionManager};
 use crate::settings::{Settings, SettingsStore};
 use crate::ServerPort;
@@ -47,41 +46,39 @@ pub fn reset_settings(
 }
 
 #[tauri::command]
-pub fn configure_hooks(app: AppHandle, port: State<'_, ServerPort>) -> Result<(), String> {
-    hooks_config::install_hooks(port.0)?;
-    let _ = app.emit("hooks-status-changed", true);
+pub fn get_providers(registry: State<'_, Mutex<ProviderRegistry>>) -> Vec<ProviderInfo> {
+    registry.lock().unwrap().list()
+}
+
+#[tauri::command]
+pub fn configure_provider(
+    app: AppHandle,
+    registry: State<'_, Mutex<ProviderRegistry>>,
+    port: State<'_, ServerPort>,
+    id: String,
+) -> Result<(), String> {
+    let reg = registry.lock().unwrap();
+    let provider = reg.get(&id).ok_or_else(|| format!("Unknown provider: {}", id))?;
+    provider.install(port.0)?;
+    drop(reg);
+    let providers = registry.lock().unwrap().list();
+    let _ = app.emit("providers-changed", &providers);
     Ok(())
 }
 
 #[tauri::command]
-pub fn remove_hooks(app: AppHandle) -> Result<(), String> {
-    hooks_config::remove_hooks()?;
-    let _ = app.emit("hooks-status-changed", false);
+pub fn remove_provider(
+    app: AppHandle,
+    registry: State<'_, Mutex<ProviderRegistry>>,
+    id: String,
+) -> Result<(), String> {
+    let reg = registry.lock().unwrap();
+    let provider = reg.get(&id).ok_or_else(|| format!("Unknown provider: {}", id))?;
+    provider.remove()?;
+    drop(reg);
+    let providers = registry.lock().unwrap().list();
+    let _ = app.emit("providers-changed", &providers);
     Ok(())
-}
-
-#[tauri::command]
-pub fn get_hook_status() -> bool {
-    hooks_config::is_hooks_installed()
-}
-
-#[tauri::command]
-pub fn configure_opencode_hooks(app: AppHandle, port: State<'_, ServerPort>) -> Result<(), String> {
-    opencode_hooks::install_opencode_plugin(port.0)?;
-    let _ = app.emit("opencode-hooks-status-changed", true);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn remove_opencode_hooks(app: AppHandle) -> Result<(), String> {
-    opencode_hooks::remove_opencode_plugin()?;
-    let _ = app.emit("opencode-hooks-status-changed", false);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_opencode_hook_status() -> bool {
-    opencode_hooks::is_opencode_plugin_installed()
 }
 
 #[tauri::command]
@@ -108,4 +105,3 @@ pub fn set_expanded(app: AppHandle, height: u32) -> Result<(), String> {
     }
     Ok(())
 }
-

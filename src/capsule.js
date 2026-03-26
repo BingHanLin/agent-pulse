@@ -4,10 +4,9 @@ const { listen } = window.__TAURI__.event;
 // State
 let sessions = [];
 let settings = {};
+let providers = [];
 let showSettings = false;
 let timerInterval = null;
-let hooksInstalled = false;
-let opencodeHooksInstalled = false;
 const ROW_HEIGHT = 48;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
@@ -20,10 +19,7 @@ const sessionList = document.getElementById('sessionList');
 const settingsPanel = document.getElementById('settingsPanel');
 const settingsBtn = document.getElementById('settingsBtn');
 const soundToggle = document.getElementById('soundToggle');
-const hookBtn = document.getElementById('hookBtn');
-const hookStatus = document.getElementById('hookStatus');
-const opencodeHookBtn = document.getElementById('opencodeHookBtn');
-const opencodeHookStatus = document.getElementById('opencodeHookStatus');
+const providerList = document.getElementById('providerList');
 
 
 const textScales = {
@@ -41,10 +37,9 @@ const stateLabels = {
 // --- Initialization ---
 
 async function init() {
-  [settings, hooksInstalled, opencodeHooksInstalled, sessions] = await Promise.all([
+  [settings, providers, sessions] = await Promise.all([
     invoke('get_settings'),
-    invoke('get_hook_status'),
-    invoke('get_opencode_hook_status'),
+    invoke('get_providers'),
     invoke('get_sessions'),
   ]);
 
@@ -64,14 +59,9 @@ async function init() {
     render();
   });
 
-  await listen('hooks-status-changed', (event) => {
-    hooksInstalled = event.payload;
-    renderHookStatus();
-  });
-
-  await listen('opencode-hooks-status-changed', (event) => {
-    opencodeHooksInstalled = event.payload;
-    renderHookStatus();
+  await listen('providers-changed', (event) => {
+    providers = event.payload;
+    if (showSettings) renderProviders();
   });
 
   await listen('show-settings', () => {
@@ -111,12 +101,15 @@ function renderSessionList() {
     return;
   }
 
+  // Build badge lookup from providers
+  const badgeMap = {};
+  providers.forEach(p => { badgeMap[p.id] = { label: p.badgeLabel, color: p.badgeColor }; });
+
   sessionList.innerHTML = sessions.map(s => {
     const dotColor = getDotColor(s.state);
     const stateClass = 'row-state-' + s.state;
     const promptText = s.lastPrompt ? truncate(s.lastPrompt, 40) : (s.lastToolName ? `Tool: ${s.lastToolName}` : '');
-    const sourceBadge = s.source === 'opencode' ? 'OC' : 'CC';
-    const sourceClass = s.source === 'opencode' ? 'source-opencode' : 'source-claude';
+    const badge = badgeMap[s.source] || { label: s.source?.slice(0, 2).toUpperCase() || '??', color: '#71717a' };
     return `
       <div class="session-row ${stateClass}" data-id="${s.id}">
         <div class="row-dot-container">
@@ -124,7 +117,7 @@ function renderSessionList() {
           <div class="row-dot-pulse" style="background: ${dotColor}"></div>
         </div>
         <div class="row-info">
-          <div class="row-project"><span class="source-badge ${sourceClass}">${sourceBadge}</span>${escapeHtml(s.projectName)}<span class="debug-pid"> [${s.pid || '?'}]</span></div>
+          <div class="row-project"><span class="source-badge" style="background: ${badge.color}20; color: ${badge.color}">${badge.label}</span>${escapeHtml(s.projectName)}<span class="debug-pid"> [${s.pid || '?'}]</span></div>
           ${promptText ? `<div class="row-prompt">${escapeHtml(promptText)}</div>` : ''}
         </div>
         <span class="row-state">${stateLabels[s.state] || s.state}</span>
@@ -155,30 +148,33 @@ function renderSettings() {
   soundToggle.classList.toggle('on', settings.soundOnComplete);
   soundToggle.onclick = () => setSetting('soundOnComplete', (!settings.soundOnComplete).toString());
 
-  renderHookStatus();
-  bindHookToggle(hookBtn, () => hooksInstalled, 'configure_hooks', 'remove_hooks');
-  bindHookToggle(opencodeHookBtn, () => opencodeHooksInstalled, 'configure_opencode_hooks', 'remove_opencode_hooks');
+  renderProviders();
 
   document.getElementById('resetBtn').onclick = async () => {
     await invoke('reset_settings');
   };
 }
 
-function updateHookRow(btn, statusEl, installed) {
-  btn.textContent = installed ? 'Remove' : 'Configure';
-  statusEl.textContent = installed ? 'Installed' : 'Not installed';
-  statusEl.className = 'hook-status' + (installed ? ' installed' : '');
-}
+function renderProviders() {
+  providerList.innerHTML = providers.map(p => `
+    <div class="settings-row">
+      <span class="settings-inline-label">${escapeHtml(p.displayName)}</span>
+      <button class="hook-btn" data-provider="${escapeHtml(p.id)}">${p.installed ? 'Remove' : 'Configure'}</button>
+      <span class="hook-status${p.installed ? ' installed' : ''}">${p.installed ? 'Installed' : 'Not installed'}</span>
+    </div>
+  `).join('');
 
-function renderHookStatus() {
-  updateHookRow(hookBtn, hookStatus, hooksInstalled);
-  updateHookRow(opencodeHookBtn, opencodeHookStatus, opencodeHooksInstalled);
-}
-
-function bindHookToggle(btn, isInstalledFn, installCmd, removeCmd) {
-  btn.onclick = async () => {
-    await invoke(isInstalledFn() ? removeCmd : installCmd);
-  };
+  providerList.querySelectorAll('.hook-btn[data-provider]').forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.provider;
+      const provider = providers.find(p => p.id === id);
+      if (provider?.installed) {
+        await invoke('remove_provider', { id });
+      } else {
+        await invoke('configure_provider', { id });
+      }
+    };
+  });
 }
 
 // --- Window resize ---

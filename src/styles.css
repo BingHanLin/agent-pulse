@@ -522,7 +522,7 @@ html, body {
   color: #34d399;
 }
 
-/* ---- Source Badge ---- */
+/* ---- Source Badge (color set inline from provider registry) ---- */
 .source-badge {
   font-size: 8px;
   font-weight: 700;
@@ -533,16 +533,6 @@ html, body {
   vertical-align: middle;
   display: inline-block;
   line-height: 1.4;
-}
-
-.source-claude {
-  background: rgba(167, 139, 250, 0.20);
-  color: #a78bfa;
-}
-
-.source-opencode {
-  background: rgba(52, 211, 153, 0.20);
-  color: #34d399;
 }
 
 /* ---- Debug Info ---- */
