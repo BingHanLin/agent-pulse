@@ -14,11 +14,8 @@ const SETTINGS_HEIGHT = 310;
 let lastHeight = null;
 
 // Window controls
-document.getElementById('minimizeBtn').addEventListener('click', () => {
-  invoke('minimize_to_tray');
-});
 document.getElementById('closeBtn').addEventListener('click', () => {
-  invoke('close_app');
+  invoke('minimize_to_tray');
 });
 
 // DOM refs

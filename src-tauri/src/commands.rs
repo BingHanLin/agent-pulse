@@ -132,10 +132,6 @@ pub fn minimize_to_tray(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn close_app(app: AppHandle) {
-    app.exit(0);
-}
 
 #[tauri::command]
 pub fn pin_session(
