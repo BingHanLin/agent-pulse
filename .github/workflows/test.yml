@@ -21,38 +21,6 @@ jobs:
           components: rustfmt
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 
-  clippy:
-    name: Clippy (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Linux system dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -76,9 +44,15 @@ jobs:
             libayatana-appindicator3-dev
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: ${{ matrix.os == 'ubuntu-latest' && 'clippy' || '' }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+
+      - name: Clippy
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
       - run: cd src-tauri && cargo test
