@@ -30,6 +30,7 @@ pub fn run() {
             commands::remove_provider,
             commands::get_server_port,
             commands::set_expanded,
+            commands::remove_session,
             commands::pin_session,
             commands::unpin_session,
             commands::reorder_pinned_sessions,

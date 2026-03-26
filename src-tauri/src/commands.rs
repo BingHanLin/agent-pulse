@@ -111,6 +111,18 @@ pub fn set_expanded(app: AppHandle, height: u32) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn remove_session(
+    app: AppHandle,
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<(), String> {
+    session_manager.remove_session(&session_id)?;
+    let sessions = session_manager.get_sessions();
+    let _ = app.emit("sessions-changed", &sessions);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn pin_session(
     app: AppHandle,
     session_manager: State<'_, SessionManager>,

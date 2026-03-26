@@ -610,6 +610,40 @@ html, body {
   opacity: 1 !important;
 }
 
+/* Close / remove button */
+.row-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: background 0.15s ease, opacity 0.15s ease, width 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  color: var(--text-dim);
+  opacity: 0;
+}
+
+.session-row:hover .row-close {
+  width: 20px;
+  overflow: visible;
+  opacity: 0.4;
+}
+
+.row-close:hover {
+  background: var(--ctrl-bg-hover);
+  opacity: 1 !important;
+  color: var(--text-secondary);
+}
+
+.row-close svg {
+  pointer-events: none;
+}
+
 /* ============================================================
    Drag and Drop (mouse-event based)
    ============================================================ */

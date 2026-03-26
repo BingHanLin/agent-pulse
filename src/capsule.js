@@ -151,6 +151,11 @@ function renderSessionList() {
         </div>
         <span class="row-state">${stateLabels[s.state] || s.state}</span>
         <span class="row-timer">${formatElapsed(s.startTimeMs)}</span>
+        <div class="row-close" onclick="event.stopPropagation(); removeSession('${s.id}')">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </div>
       </div>
       ${separator}
     `;
@@ -175,6 +180,10 @@ function pinSession(sessionId) {
 
 function unpinSession(sessionId) {
   invoke('unpin_session', { sessionId }).catch(e => console.error('unpin_session failed:', e));
+}
+
+function removeSession(sessionId) {
+  invoke('remove_session', { sessionId }).catch(e => console.error('remove_session failed:', e));
 }
 
 function reorderPinnedSessions(orderedIds) {

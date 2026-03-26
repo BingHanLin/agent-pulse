@@ -364,6 +364,28 @@ impl SessionManager {
         event.hook_event_name == "Stop"
     }
 
+    pub fn remove_session(&self, session_id: &str) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().unwrap();
+        let session = sessions
+            .get(session_id)
+            .ok_or_else(|| format!("Session not found: {}", session_id))?;
+
+        let pin_order = session.pin_order;
+        sessions.remove(session_id);
+
+        let mut selected = self.selected_session.lock().unwrap();
+        if selected.as_deref() == Some(session_id) {
+            *selected = None;
+        }
+        drop(selected);
+
+        if let Some(order) = pin_order {
+            compact_pin_orders(&mut sessions, order);
+        }
+
+        Ok(())
+    }
+
     pub fn pin_session(&self, session_id: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().unwrap();
 
