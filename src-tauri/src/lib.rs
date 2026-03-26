@@ -30,6 +30,8 @@ pub fn run() {
             commands::remove_provider,
             commands::get_server_port,
             commands::set_expanded,
+            commands::minimize_to_tray,
+            commands::close_app,
             commands::remove_session,
             commands::pin_session,
             commands::unpin_session,

@@ -123,6 +123,21 @@ pub fn remove_session(
 }
 
 #[tauri::command]
+pub fn minimize_to_tray(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("capsule") {
+        window
+            .hide()
+            .map_err(|e| format!("Failed to hide window: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_app(app: AppHandle) {
+    app.exit(0);
+}
+
+#[tauri::command]
 pub fn pin_session(
     app: AppHandle,
     session_manager: State<'_, SessionManager>,

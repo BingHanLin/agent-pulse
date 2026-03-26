@@ -13,6 +13,14 @@ const EMPTY_HEIGHT = 52;
 const SETTINGS_HEIGHT = 310;
 let lastHeight = null;
 
+// Window controls
+document.getElementById('minimizeBtn').addEventListener('click', () => {
+  invoke('minimize_to_tray');
+});
+document.getElementById('closeBtn').addEventListener('click', () => {
+  invoke('close_app');
+});
+
 // DOM refs
 const capsule = document.getElementById('capsule');
 const sessionList = document.getElementById('sessionList');

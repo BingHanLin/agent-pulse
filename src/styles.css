@@ -98,6 +98,35 @@ html, body {
   letter-spacing: 0.08em;
 }
 
+.title-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.window-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.window-btn:hover {
+  color: var(--text-primary);
+  background: var(--ctrl-bg);
+}
+
+.window-btn.close-btn:hover {
+  color: #ff5f57;
+  background: rgba(255, 95, 87, 0.12);
+}
+
 .settings-btn {
   background: none;
   border: none;
