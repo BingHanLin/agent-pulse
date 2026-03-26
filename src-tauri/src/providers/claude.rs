@@ -77,7 +77,7 @@ if echo "$INPUT" | grep -q '"source"'; then
   echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}}}}/"
 else
   echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}},\"source\":\"{source}\"}}/"
-fi | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
+fi | curl -s -o /dev/null --max-time 2 -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @- 2>/dev/null || true
 "#
     )
 }
