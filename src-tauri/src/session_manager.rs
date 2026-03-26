@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const REMOVE_TIMEOUT_SECS: u64 = 5 * 60; // 5 minutes — fallback for sessions without PID
-const IDLE_DOWNGRADE_SECS: u64 = 30; // 30 seconds — Working → Idle if no events
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -141,7 +140,7 @@ impl SessionManager {
 
         // Auto-create session if it doesn't exist (for any event type)
         if !sessions.contains_key(&event.session_id) && name != "SessionEnd" {
-            let source = event.source.clone().unwrap_or_else(|| "agent".to_string());
+            let source = event.source.clone().unwrap_or_else(|| "unknown".to_string());
             let session = Session::new(
                 event.session_id.clone(),
                 event.cwd.clone(),
@@ -162,7 +161,7 @@ impl SessionManager {
 
         let changed = match name {
             "SessionStart" => {
-                let source = event.source.clone().unwrap_or_else(|| "agent".to_string());
+                let source = event.source.clone().unwrap_or_else(|| "unknown".to_string());
                 let session = Session::new(
                     event.session_id.clone(),
                     event.cwd.clone(),
@@ -265,11 +264,6 @@ impl SessionManager {
             // Fallback timeout-based removal (for sessions without a resolved PID)
             if session.pid.is_none() && elapsed > Duration::from_secs(REMOVE_TIMEOUT_SECS) {
                 to_remove.push(id.clone());
-                changed = true;
-            } else if elapsed > Duration::from_secs(IDLE_DOWNGRADE_SECS)
-                && session.state == SessionState::Working
-            {
-                session.state = SessionState::Idle;
                 changed = true;
             }
         }

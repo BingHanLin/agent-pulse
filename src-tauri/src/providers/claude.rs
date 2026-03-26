@@ -24,7 +24,7 @@ fn helper_script_path() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".claude").join("agent-pulse-hook.sh"))
 }
 
-fn helper_script_content(port: u16) -> String {
+fn helper_script_content(port: u16, source: &str) -> String {
     format!(
         r#"#!/bin/bash
 # Agent Pulse hook helper — injects PID and forwards to webhook server
@@ -67,7 +67,7 @@ find_claude_pid() {{
 }}
 
 CPID=$(find_claude_pid)
-sed "s/}}$/,\"pid\":${{CPID:-0}}}}/" | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
+sed "s/}}$/,\"pid\":${{CPID:-0}},\"source\":\"{source}\"}}/" | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
 "#
     )
 }
@@ -129,7 +129,7 @@ impl HookProvider for ClaudeCodeProvider {
         }
 
         let script_path = helper_script_path().ok_or("Could not determine helper script path")?;
-        fs::write(&script_path, helper_script_content(port))
+        fs::write(&script_path, helper_script_content(port, self.id()))
             .map_err(|e| format!("Failed to write hook helper script: {}", e))?;
 
         let mut settings: Value = if path.exists() {
