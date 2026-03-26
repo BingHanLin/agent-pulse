@@ -73,7 +73,11 @@ find_claude_pid() {{
 # Capture stdin immediately before any slow operations
 INPUT=$(cat)
 CPID=$(find_claude_pid)
-echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}},\"source\":\"{source}\"}}/" | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
+if echo "$INPUT" | grep -q '"source"'; then
+  echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}}}}/"
+else
+  echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}},\"source\":\"{source}\"}}/"
+fi | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
 "#
     )
 }
