@@ -1,5 +1,5 @@
 [package]
-name = "claude-pulse"
+name = "agent-pulse"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,5 +16,5 @@ sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 tauri-build = { version = "2", features = [] }
 
 [lib]
-name = "claude_pulse"
+name = "agent_pulse"
 crate-type = ["lib", "cdylib", "staticlib"]

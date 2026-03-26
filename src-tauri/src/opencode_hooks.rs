@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-const PLUGIN_FILENAME: &str = "claude-pulse-opencode.js";
+const PLUGIN_FILENAME: &str = "agent-pulse-opencode.js";
 
 fn plugin_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("opencode").join("plugins"))
@@ -13,7 +13,7 @@ fn plugin_path() -> Option<PathBuf> {
 
 fn plugin_content(port: u16) -> String {
     format!(
-        r#"// Claude Pulse — OpenCode plugin
+        r#"// Agent Pulse — OpenCode plugin
 // Auto-generated. Do not edit manually.
 //
 // OpenCode event structure notes:
@@ -37,7 +37,7 @@ fn plugin_content(port: u16) -> String {
 const PORT = {port};
 const URL = `http://127.0.0.1:${{PORT}}`;
 
-export const ClaudePulse = async ({{ directory }}) => {{
+export const AgentPulse = async ({{ directory }}) => {{
   const sessionId = `opencode-${{Date.now()}}-${{Math.random().toString(36).slice(2, 8)}}`;
   const cwd = directory || process.cwd();
   const pid = process.pid;
@@ -111,7 +111,8 @@ export const ClaudePulse = async ({{ directory }}) => {{
 
 pub fn install_opencode_plugin(port: u16) -> Result<(), String> {
     let dir = plugin_dir().ok_or("Could not determine config directory")?;
-    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create OpenCode plugins dir: {}", e))?;
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create OpenCode plugins dir: {}", e))?;
 
     let path = dir.join(PLUGIN_FILENAME);
     fs::write(&path, plugin_content(port))

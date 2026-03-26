@@ -20,14 +20,14 @@ fn settings_path() -> Option<PathBuf> {
 }
 
 fn helper_script_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".claude").join("claude-pulse-hook.sh"))
+    dirs::home_dir().map(|h| h.join(".claude").join("agent-pulse-hook.sh"))
 }
 
 /// Shell script that injects the parent's Windows PID into the hook JSON.
 fn helper_script_content(port: u16) -> String {
     format!(
         r#"#!/bin/bash
-# Claude Pulse hook helper — injects PID and forwards to webhook server
+# Agent Pulse hook helper — injects PID and forwards to webhook server
 
 # Walk up the process tree to find the claude process PID
 find_claude_pid() {{
@@ -93,7 +93,7 @@ fn is_our_hook(entry: &Value) -> bool {
         hooks.iter().any(|hook| {
             hook.get("command")
                 .and_then(|c| c.as_str())
-                .map(|c| c.contains(HOOK_MARKER) || c.contains("claude-pulse-hook"))
+                .map(|c| c.contains(HOOK_MARKER) || c.contains("agent-pulse-hook"))
                 .unwrap_or(false)
         })
     } else {
@@ -110,8 +110,7 @@ pub fn install_hooks(port: u16) -> Result<(), String> {
     }
 
     // Write helper script
-    let script_path =
-        helper_script_path().ok_or("Could not determine helper script path")?;
+    let script_path = helper_script_path().ok_or("Could not determine helper script path")?;
     fs::write(&script_path, helper_script_content(port))
         .map_err(|e| format!("Failed to write hook helper script: {}", e))?;
 
@@ -119,8 +118,12 @@ pub fn install_hooks(port: u16) -> Result<(), String> {
     let mut settings: Value = if path.exists() {
         let content =
             fs::read_to_string(&path).map_err(|e| format!("Failed to read settings: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse settings.json: {}. Please fix it manually.", e))?
+        serde_json::from_str(&content).map_err(|e| {
+            format!(
+                "Failed to parse settings.json: {}. Please fix it manually.",
+                e
+            )
+        })?
     } else {
         serde_json::json!({})
     };
@@ -149,10 +152,8 @@ pub fn install_hooks(port: u16) -> Result<(), String> {
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
     let tmp_path = path.with_extension("json.tmp");
-    fs::write(&tmp_path, &content)
-        .map_err(|e| format!("Failed to write settings: {}", e))?;
-    fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("Failed to save settings: {}", e))?;
+    fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write settings: {}", e))?;
+    fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to save settings: {}", e))?;
 
     println!("Hooks installed for port {}", port);
     Ok(())
@@ -242,7 +243,7 @@ mod tests {
             "matcher": "",
             "hooks": [{
                 "type": "command",
-                "command": "bash \"/home/user/.claude/claude-pulse-hook.sh\""
+                "command": "bash \"/home/user/.claude/agent-pulse-hook.sh\""
             }]
         });
         assert!(is_our_hook(&hook));
@@ -276,6 +277,6 @@ mod tests {
     fn test_make_hook_entry() {
         let entry = make_hook_entry();
         let cmd = entry["hooks"][0]["command"].as_str().unwrap();
-        assert!(cmd.contains("claude-pulse-hook"));
+        assert!(cmd.contains("agent-pulse-hook"));
     }
 }
