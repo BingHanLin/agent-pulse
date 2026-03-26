@@ -263,7 +263,7 @@ impl SessionManager {
             }
 
             // Fallback timeout-based removal (for sessions without a resolved PID)
-            if elapsed > Duration::from_secs(REMOVE_TIMEOUT_SECS) {
+            if session.pid.is_none() && elapsed > Duration::from_secs(REMOVE_TIMEOUT_SECS) {
                 to_remove.push(id.clone());
                 changed = true;
             } else if elapsed > Duration::from_secs(IDLE_DOWNGRADE_SECS)
