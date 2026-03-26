@@ -128,16 +128,18 @@ impl HookProvider for ClaudeCodeProvider {
                 .map_err(|e| format!("Failed to create .claude dir: {}", e))?;
         }
 
-        let script_path =
-            helper_script_path().ok_or("Could not determine helper script path")?;
+        let script_path = helper_script_path().ok_or("Could not determine helper script path")?;
         fs::write(&script_path, helper_script_content(port))
             .map_err(|e| format!("Failed to write hook helper script: {}", e))?;
 
         let mut settings: Value = if path.exists() {
-            let content = fs::read_to_string(&path)
-                .map_err(|e| format!("Failed to read settings: {}", e))?;
+            let content =
+                fs::read_to_string(&path).map_err(|e| format!("Failed to read settings: {}", e))?;
             serde_json::from_str(&content).map_err(|e| {
-                format!("Failed to parse settings.json: {}. Please fix it manually.", e)
+                format!(
+                    "Failed to parse settings.json: {}. Please fix it manually.",
+                    e
+                )
             })?
         } else {
             serde_json::json!({})
@@ -166,12 +168,10 @@ impl HookProvider for ClaudeCodeProvider {
             .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
         let tmp_path = path.with_extension("json.tmp");
-        fs::write(&tmp_path, &content)
-            .map_err(|e| format!("Failed to write settings: {}", e))?;
-        fs::rename(&tmp_path, &path)
-            .map_err(|e| format!("Failed to save settings: {}", e))?;
+        fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write settings: {}", e))?;
+        fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to save settings: {}", e))?;
 
-        println!("Claude Code hooks installed for port {}", port);
+        println!("Claude Code integration installed for port {}", port);
         Ok(())
     }
 
@@ -212,7 +212,7 @@ impl HookProvider for ClaudeCodeProvider {
             .map_err(|e| format!("Failed to serialize settings: {}", e))?;
         fs::write(&path, content).map_err(|e| format!("Failed to write settings: {}", e))?;
 
-        println!("Claude Code hooks removed");
+        println!("Claude Code integration removed");
         Ok(())
     }
 

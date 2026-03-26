@@ -104,7 +104,10 @@ fn extract_project_name(path: &str) -> String {
         return "Unknown".to_string();
     }
     let path = path.trim_end_matches(['/', '\\']);
-    path.rsplit(['/', '\\']).next().unwrap_or("Unknown").to_string()
+    path.rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("Unknown")
+        .to_string()
 }
 
 fn current_time_ms() -> u64 {
@@ -138,8 +141,13 @@ impl SessionManager {
 
         // Auto-create session if it doesn't exist (for any event type)
         if !sessions.contains_key(&event.session_id) && name != "SessionEnd" {
-            let source = event.source.clone().unwrap_or_else(|| "claude".to_string());
-            let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source);
+            let source = event.source.clone().unwrap_or_else(|| "agent".to_string());
+            let session = Session::new(
+                event.session_id.clone(),
+                event.cwd.clone(),
+                valid_pid,
+                source,
+            );
             sessions.insert(event.session_id.clone(), session);
         }
 
@@ -154,8 +162,13 @@ impl SessionManager {
 
         let changed = match name {
             "SessionStart" => {
-                let source = event.source.clone().unwrap_or_else(|| "claude".to_string());
-                let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source);
+                let source = event.source.clone().unwrap_or_else(|| "agent".to_string());
+                let session = Session::new(
+                    event.session_id.clone(),
+                    event.cwd.clone(),
+                    valid_pid,
+                    source,
+                );
                 sessions.insert(event.session_id.clone(), session);
                 true
             }
@@ -227,12 +240,13 @@ impl SessionManager {
         };
 
         // Batch-check which PIDs are dead (single syscall)
-        let dead_pid_set: std::collections::HashSet<u32> = if let Ok(mut monitor) = self.process_monitor.lock() {
-            let all_pids: Vec<u32> = pids_to_check.iter().map(|(_, pid)| *pid).collect();
-            monitor.find_dead_pids(&all_pids).into_iter().collect()
-        } else {
-            std::collections::HashSet::new()
-        };
+        let dead_pid_set: std::collections::HashSet<u32> =
+            if let Ok(mut monitor) = self.process_monitor.lock() {
+                let all_pids: Vec<u32> = pids_to_check.iter().map(|(_, pid)| *pid).collect();
+                monitor.find_dead_pids(&all_pids).into_iter().collect()
+            } else {
+                std::collections::HashSet::new()
+            };
 
         let mut sessions = self.sessions.lock().unwrap();
         let mut changed = false;
@@ -276,10 +290,8 @@ impl SessionManager {
         let selected = self.selected_session.lock().unwrap();
         let active_id = self.resolve_active_id(&sessions, &selected);
 
-        let mut infos: Vec<SessionInfo> = sessions
-            .values()
-            .map(|s| s.to_info(&active_id))
-            .collect();
+        let mut infos: Vec<SessionInfo> =
+            sessions.values().map(|s| s.to_info(&active_id)).collect();
         infos.sort_by(|a, b| b.last_activity_ms.cmp(&a.last_activity_ms));
         infos
     }
@@ -301,9 +313,7 @@ impl SessionManager {
             .values()
             .filter(|s| s.state == SessionState::Working || s.state == SessionState::WaitingForUser)
             .max_by_key(|s| (s.state.priority(), s.last_activity_ms))
-            .or_else(|| {
-                sessions.values().max_by_key(|s| s.last_activity_ms)
-            })
+            .or_else(|| sessions.values().max_by_key(|s| s.last_activity_ms))
             .map(|s| s.id.clone())
     }
 

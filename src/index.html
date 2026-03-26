@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClaudePulse</title>
+  <title>Agent Pulse</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="capsule" class="capsule">
     <!-- Title bar -->
     <div class="title-bar" data-tauri-drag-region>
-      <span class="title-text" data-tauri-drag-region>Claude Pulse</span>
+      <span class="title-text" data-tauri-drag-region>Agent Pulse</span>
       <button class="settings-btn" id="settingsBtn" title="Settings" aria-label="Open settings">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <!-- Gear -->
@@ -32,7 +32,7 @@
 
       <!-- Status Colors -->
       <div class="settings-group">
-        <label class="settings-label">Status Colors <span class="hint-icon" data-hint="Working: Claude is processing a task&#10;Waiting: Claude needs your permission&#10;Idle: Session open but not active">?</span></label>
+        <label class="settings-label">Status Colors <span class="hint-icon" data-hint="Working: Agent is processing a task&#10;Waiting: Agent needs your permission&#10;Idle: Session open but not active">?</span></label>
         <div class="color-row">
           <div class="color-field">
             <input type="color" class="color-picker" id="colorWorking">
@@ -71,7 +71,7 @@
 
       <!-- Notifications -->
       <div class="settings-group">
-        <label class="settings-label">Notifications <span class="hint-icon" data-hint="Sound plays when Claude finishes a task (Stop event)">?</span></label>
+        <label class="settings-label">Notifications <span class="hint-icon" data-hint="Sound plays when agent finishes a task (Stop event)">?</span></label>
         <div class="settings-row">
           <span class="settings-inline-label">Sound</span>
           <button class="toggle-btn" id="soundToggle">On</button>
