@@ -1,4 +1,5 @@
 use crate::hooks_config;
+use crate::opencode_hooks;
 use crate::session_manager::{SessionInfo, SessionManager};
 use crate::settings::{Settings, SettingsStore};
 use crate::ServerPort;
@@ -62,6 +63,25 @@ pub fn remove_hooks(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn get_hook_status() -> bool {
     hooks_config::is_hooks_installed()
+}
+
+#[tauri::command]
+pub fn configure_opencode_hooks(app: AppHandle, port: State<'_, ServerPort>) -> Result<(), String> {
+    opencode_hooks::install_opencode_plugin(port.0)?;
+    let _ = app.emit("opencode-hooks-status-changed", true);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_opencode_hooks(app: AppHandle) -> Result<(), String> {
+    opencode_hooks::remove_opencode_plugin()?;
+    let _ = app.emit("opencode-hooks-status-changed", false);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_opencode_hook_status() -> bool {
+    opencode_hooks::is_opencode_plugin_installed()
 }
 
 #[tauri::command]

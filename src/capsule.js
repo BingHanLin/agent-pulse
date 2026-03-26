@@ -7,10 +7,11 @@ let settings = {};
 let showSettings = false;
 let timerInterval = null;
 let hooksInstalled = false;
+let opencodeHooksInstalled = false;
 const ROW_HEIGHT = 48;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
-const SETTINGS_HEIGHT = 280;
+const SETTINGS_HEIGHT = 310;
 let lastHeight = null;
 
 // DOM refs
@@ -21,6 +22,8 @@ const settingsBtn = document.getElementById('settingsBtn');
 const soundToggle = document.getElementById('soundToggle');
 const hookBtn = document.getElementById('hookBtn');
 const hookStatus = document.getElementById('hookStatus');
+const opencodeHookBtn = document.getElementById('opencodeHookBtn');
+const opencodeHookStatus = document.getElementById('opencodeHookStatus');
 
 
 const textScales = {
@@ -40,6 +43,7 @@ const stateLabels = {
 async function init() {
   settings = await invoke('get_settings');
   hooksInstalled = await invoke('get_hook_status');
+  opencodeHooksInstalled = await invoke('get_opencode_hook_status');
   sessions = await invoke('get_sessions');
 
   applySettings();
@@ -60,6 +64,11 @@ async function init() {
 
   await listen('hooks-status-changed', (event) => {
     hooksInstalled = event.payload;
+    renderHookStatus();
+  });
+
+  await listen('opencode-hooks-status-changed', (event) => {
+    opencodeHooksInstalled = event.payload;
     renderHookStatus();
   });
 
@@ -104,6 +113,8 @@ function renderSessionList() {
     const dotColor = getDotColor(s.state);
     const stateClass = 'row-state-' + s.state;
     const promptText = s.lastPrompt ? truncate(s.lastPrompt, 40) : (s.lastToolName ? `Tool: ${s.lastToolName}` : '');
+    const sourceBadge = s.source === 'opencode' ? 'OC' : 'CC';
+    const sourceClass = s.source === 'opencode' ? 'source-opencode' : 'source-claude';
     return `
       <div class="session-row ${stateClass}" data-id="${s.id}">
         <div class="row-dot-container">
@@ -111,7 +122,7 @@ function renderSessionList() {
           <div class="row-dot-pulse" style="background: ${dotColor}"></div>
         </div>
         <div class="row-info">
-          <div class="row-project">${escapeHtml(s.projectName)}<span class="debug-pid"> [${s.pid || '?'}]</span></div>
+          <div class="row-project"><span class="source-badge ${sourceClass}">${sourceBadge}</span>${escapeHtml(s.projectName)}<span class="debug-pid"> [${s.pid || '?'}]</span></div>
           ${promptText ? `<div class="row-prompt">${escapeHtml(promptText)}</div>` : ''}
         </div>
         <span class="row-state">${stateLabels[s.state] || s.state}</span>
@@ -151,15 +162,27 @@ function renderSettings() {
     }
   };
 
+  opencodeHookBtn.onclick = async () => {
+    if (opencodeHooksInstalled) {
+      await invoke('remove_opencode_hooks');
+    } else {
+      await invoke('configure_opencode_hooks');
+    }
+  };
+
   document.getElementById('resetBtn').onclick = async () => {
     await invoke('reset_settings');
   };
 }
 
 function renderHookStatus() {
-  hookBtn.textContent = hooksInstalled ? 'Remove Hooks' : 'Configure Hooks';
+  hookBtn.textContent = hooksInstalled ? 'Remove' : 'Configure';
   hookStatus.textContent = hooksInstalled ? 'Installed' : 'Not installed';
   hookStatus.className = 'hook-status' + (hooksInstalled ? ' installed' : '');
+
+  opencodeHookBtn.textContent = opencodeHooksInstalled ? 'Remove' : 'Configure';
+  opencodeHookStatus.textContent = opencodeHooksInstalled ? 'Installed' : 'Not installed';
+  opencodeHookStatus.className = 'hook-status' + (opencodeHooksInstalled ? ' installed' : '');
 }
 
 // --- Window resize ---

@@ -317,7 +317,7 @@ html, body {
 .settings-panel {
   padding: 6px 12px 14px;
   border-top: 1px solid var(--border-subtle);
-  max-height: 270px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -355,7 +355,7 @@ html, body {
 .settings-inline-label {
   font-size: var(--font-xs);
   color: var(--text-dim);
-  min-width: 40px;
+  min-width: 64px;
 }
 
 .settings-row {
@@ -519,6 +519,29 @@ html, body {
 }
 
 .hook-status.installed {
+  color: #34d399;
+}
+
+/* ---- Source Badge ---- */
+.source-badge {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 5px;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1.4;
+}
+
+.source-claude {
+  background: rgba(167, 139, 250, 0.20);
+  color: #a78bfa;
+}
+
+.source-opencode {
+  background: rgba(52, 211, 153, 0.20);
   color: #34d399;
 }
 

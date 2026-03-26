@@ -80,10 +80,16 @@
 
       <!-- System -->
       <div class="settings-group">
-        <label class="settings-label">System <span class="hint-icon" data-hint="Installs hooks in ~/.claude/settings.json&#10;that send session events to this app via&#10;a local webhook on port 19280-19289">?</span></label>
+        <label class="settings-label">Integrations <span class="hint-icon" data-hint="Install hooks/plugins so session events&#10;are sent to this app via a local webhook&#10;on port 19280-19289">?</span></label>
         <div class="settings-row">
-          <button class="hook-btn" id="hookBtn">Configure Hooks</button>
+          <span class="settings-inline-label">Claude Code</span>
+          <button class="hook-btn" id="hookBtn">Configure</button>
           <span class="hook-status" id="hookStatus"></span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-inline-label">OpenCode</span>
+          <button class="hook-btn" id="opencodeHookBtn">Configure</button>
+          <span class="hook-status" id="opencodeHookStatus"></span>
         </div>
       </div>
 

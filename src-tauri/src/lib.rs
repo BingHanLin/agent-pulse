@@ -1,5 +1,6 @@
 mod commands;
 mod hooks_config;
+mod opencode_hooks;
 mod process_monitor;
 mod session_manager;
 mod settings;
@@ -27,6 +28,9 @@ pub fn run() {
             commands::configure_hooks,
             commands::remove_hooks,
             commands::get_hook_status,
+            commands::configure_opencode_hooks,
+            commands::remove_opencode_hooks,
+            commands::get_opencode_hook_status,
             commands::get_server_port,
             commands::set_expanded,
         ])

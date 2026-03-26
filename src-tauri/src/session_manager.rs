@@ -39,6 +39,7 @@ pub struct SessionInfo {
     pub last_tool_name: Option<String>,
     pub is_active: bool,
     pub pid: Option<u32>,
+    pub source: String,
 }
 
 #[derive(Debug, Clone)]
@@ -53,10 +54,11 @@ struct Session {
     last_prompt: Option<String>,
     last_tool_name: Option<String>,
     pid: Option<u32>,
+    source: String,
 }
 
 impl Session {
-    fn new(id: String, cwd: Option<String>, pid: Option<u32>) -> Self {
+    fn new(id: String, cwd: Option<String>, pid: Option<u32>, source: String) -> Self {
         let project_path = cwd.unwrap_or_default();
         let project_name = extract_project_name(&project_path);
         let now_ms = current_time_ms();
@@ -71,6 +73,7 @@ impl Session {
             last_prompt: None,
             last_tool_name: None,
             pid,
+            source,
         }
     }
 
@@ -91,6 +94,7 @@ impl Session {
             last_tool_name: self.last_tool_name.clone(),
             is_active: active_id.as_ref() == Some(&self.id),
             pid: self.pid,
+            source: self.source.clone(),
         }
     }
 }
@@ -130,11 +134,12 @@ impl SessionManager {
         let name = event.hook_event_name.as_str();
         // Treat 0 and 1 as invalid (MSYS init PID on Windows)
         let valid_pid = event.pid.filter(|&p| p > 1);
+        let source = event.source.clone().unwrap_or_else(|| "claude".to_string());
         let mut sessions = self.sessions.lock().unwrap();
 
         // Auto-create session if it doesn't exist (for any event type)
         if !sessions.contains_key(&event.session_id) && name != "SessionEnd" {
-            let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid);
+            let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source.clone());
             sessions.insert(event.session_id.clone(), session);
         }
 
@@ -149,7 +154,7 @@ impl SessionManager {
 
         let changed = match name {
             "SessionStart" => {
-                let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid);
+                let session = Session::new(event.session_id.clone(), event.cwd.clone(), valid_pid, source.clone());
                 sessions.insert(event.session_id.clone(), session);
                 true
             }
@@ -324,6 +329,7 @@ mod tests {
             notification_type: None,
             prompt: None,
             pid: None,
+            source: None,
         }
     }
 
