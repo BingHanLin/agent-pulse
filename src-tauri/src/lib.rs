@@ -30,6 +30,9 @@ pub fn run() {
             commands::remove_provider,
             commands::get_server_port,
             commands::set_expanded,
+            commands::pin_session,
+            commands::unpin_session,
+            commands::reorder_pinned_sessions,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

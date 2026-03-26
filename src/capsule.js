@@ -28,6 +28,10 @@ const textScales = {
   large: 1.15,
 };
 
+// Drag and drop state (mouse-event based)
+let dragState = null; // { sessionId, startY, rowEl, placeholder }
+let dragOverSessionId = null;
+
 const stateLabels = {
   idle: 'Idle',
   working: 'Working',
@@ -43,13 +47,16 @@ async function init() {
     invoke('get_sessions'),
   ]);
 
+  setupDragListeners();
   applySettings();
   render();
   startTimer();
 
   await listen('sessions-changed', (event) => {
     sessions = event.payload;
-    render();
+    if (!dragState) {
+      render();
+    }
   });
 
   await listen('settings-changed', (event) => {
@@ -105,13 +112,35 @@ function renderSessionList() {
   const badgeMap = {};
   providers.forEach(p => { badgeMap[p.id] = { label: p.badgeLabel, color: p.badgeColor }; });
 
-  sessionList.innerHTML = sessions.map(s => {
-    const dotColor = getDotColor(s.state);
+  let lastPinnedIndex = -1;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    if (sessions[i].pinned) { lastPinnedIndex = i; break; }
+  }
+  const hasPinnedSessions = lastPinnedIndex >= 0;
+
+  const dotColors = getDotColors();
+
+  sessionList.innerHTML = sessions.map((s, index) => {
+    const dotColor = dotColors[s.state] || dotColors.idle;
     const stateClass = 'row-state-' + s.state;
     const promptText = s.lastPrompt ? truncate(s.lastPrompt, 40) : (s.lastToolName ? `Tool: ${s.lastToolName}` : '');
     const badge = badgeMap[s.source] || { label: s.source?.slice(0, 2).toUpperCase() || '??', color: '#71717a' };
+    const isPinned = s.pinned;
+    const pinIcon = `<svg class="pin-icon ${isPinned ? 'pinned' : 'unpinned'}" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+        <path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/>
+      </svg>`;
+    
+    // Add separator after last pinned session
+    const separator = hasPinnedSessions && index === lastPinnedIndex ? 
+      '<div class="pinned-separator"></div>' : '';
+    
+    const pinnedClass = isPinned ? 'pinned-row' : '';
+    
     return `
-      <div class="session-row ${stateClass}" data-id="${s.id}">
+      <div class="session-row ${stateClass} ${pinnedClass}" data-id="${s.id}">
+        <div class="row-pin ${hasPinnedSessions ? '' : 'pin-hidden'}" onclick="event.stopPropagation(); togglePin('${s.id}')">
+          ${pinIcon}
+        </div>
         <div class="row-dot-container">
           <div class="row-dot" style="background: ${dotColor}"></div>
           <div class="row-dot-pulse" style="background: ${dotColor}"></div>
@@ -123,8 +152,134 @@ function renderSessionList() {
         <span class="row-state">${stateLabels[s.state] || s.state}</span>
         <span class="row-timer">${formatElapsed(s.startTimeMs)}</span>
       </div>
+      ${separator}
     `;
   }).join('');
+
+}
+
+function togglePin(sessionId) {
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session) return;
+  
+  if (session.pinned) {
+    unpinSession(sessionId);
+  } else {
+    pinSession(sessionId);
+  }
+}
+
+function pinSession(sessionId) {
+  invoke('pin_session', { sessionId }).catch(e => console.error('pin_session failed:', e));
+}
+
+function unpinSession(sessionId) {
+  invoke('unpin_session', { sessionId }).catch(e => console.error('unpin_session failed:', e));
+}
+
+function reorderPinnedSessions(orderedIds) {
+  invoke('reorder_pinned_sessions', { orderedIds }).catch(e => console.error('reorder failed:', e));
+}
+
+// --- Mouse-based drag reorder for pinned sessions ---
+
+function setupDragListeners() {
+  let startY = 0;
+  let dragging = false;
+  let dropTargets = []; // cached { id, top, bottom, el }
+  const DRAG_THRESHOLD = 4;
+
+  sessionList.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.row-pin')) return;
+    const row = e.target.closest('.session-row.pinned-row');
+    if (!row || e.button !== 0) return;
+
+    startY = e.clientY;
+    dragging = false;
+
+    const sessionId = row.dataset.id;
+
+    const cleanup = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('blur', onBlur);
+      if (!dragging) return;
+      row.classList.remove('dragging');
+      sessionList.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      document.body.style.cursor = '';
+      dragState = null;
+      dragOverSessionId = null;
+      dropTargets = [];
+    };
+
+    const onMouseMove = (e) => {
+      if (!dragging && Math.abs(e.clientY - startY) >= DRAG_THRESHOLD) {
+        dragging = true;
+        dragState = { sessionId };
+        row.classList.add('dragging');
+        // Cache rects once at drag start
+        dropTargets = [];
+        sessionList.querySelectorAll('.session-row.pinned-row').forEach(r => {
+          if (r.dataset.id === sessionId) return;
+          const rect = r.getBoundingClientRect();
+          dropTargets.push({ id: r.dataset.id, top: rect.top, bottom: rect.bottom, el: r });
+        });
+      }
+
+      if (!dragging) return;
+
+      const target = dropTargets.find(t => e.clientY >= t.top && e.clientY <= t.bottom);
+      sessionList.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      dragOverSessionId = null;
+
+      if (target) {
+        target.el.classList.add('drag-over');
+        dragOverSessionId = target.id;
+        document.body.style.cursor = 'grabbing';
+      } else {
+        document.body.style.cursor = 'not-allowed';
+      }
+    };
+
+    const onMouseUp = () => {
+      const targetId = dragOverSessionId;
+      cleanup();
+      if (targetId && targetId !== sessionId) {
+        applyReorder(sessionId, targetId);
+      }
+    };
+
+    const onBlur = () => cleanup();
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('blur', onBlur);
+  });
+}
+
+function applyReorder(draggedId, targetId) {
+  const pinnedIds = sessions.filter(s => s.pinned).map(s => s.id);
+  const draggedIndex = pinnedIds.indexOf(draggedId);
+  const targetIndex = pinnedIds.indexOf(targetId);
+  if (draggedIndex === -1 || targetIndex === -1) return;
+
+  pinnedIds.splice(draggedIndex, 1);
+  pinnedIds.splice(targetIndex, 0, draggedId);
+
+  // Optimistic local update
+  const newSessions = [...sessions];
+  pinnedIds.forEach((id, index) => {
+    const session = newSessions.find(s => s.id === id);
+    if (session) session.pinOrder = index;
+  });
+
+  const reordered = pinnedIds.map(id => newSessions.find(s => s.id === id));
+  const unpinned = newSessions.filter(s => !s.pinned);
+  sessions = [...reordered, ...unpinned];
+
+  renderSessionList();
+  resizeWindow();
+  reorderPinnedSessions(pinnedIds);
 }
 
 function renderSettings() {
@@ -185,6 +340,11 @@ async function resizeWindow() {
     height += EMPTY_HEIGHT;
   } else {
     height += sessions.length * ROW_HEIGHT + 8;
+    // Add space for separator if there are pinned sessions
+    const hasPinnedSessions = sessions.some(s => s.pinned);
+    if (hasPinnedSessions) {
+      height += 3; // Separator height (1px) + margins (2px total)
+    }
   }
   if (showSettings) {
     height += SETTINGS_HEIGHT;
@@ -265,14 +425,13 @@ function formatElapsed(startTimeMs) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function getDotColor(state) {
+function getDotColors() {
   const style = getComputedStyle(document.documentElement);
-  const colors = {
+  return {
     idle: style.getPropertyValue('--color-idle').trim(),
     working: style.getPropertyValue('--color-working').trim(),
     waitingForUser: style.getPropertyValue('--color-waiting').trim(),
   };
-  return colors[state] || colors.idle;
 }
 
 function truncate(str, maxLen) {

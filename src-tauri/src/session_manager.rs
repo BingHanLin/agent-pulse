@@ -39,6 +39,8 @@ pub struct SessionInfo {
     pub is_active: bool,
     pub pid: Option<u32>,
     pub source: String,
+    pub pinned: bool,
+    pub pin_order: Option<i32>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +56,8 @@ struct Session {
     last_tool_name: Option<String>,
     pid: Option<u32>,
     source: String,
+    pinned: bool,
+    pin_order: Option<i32>,
 }
 
 impl Session {
@@ -73,6 +77,8 @@ impl Session {
             last_tool_name: None,
             pid,
             source,
+            pinned: false,
+            pin_order: None,
         }
     }
 
@@ -94,6 +100,8 @@ impl Session {
             is_active: active_id.as_ref() == Some(&self.id),
             pid: self.pid,
             source: self.source.clone(),
+            pinned: self.pinned,
+            pin_order: self.pin_order,
         }
     }
 }
@@ -123,6 +131,17 @@ pub struct SessionManager {
     process_monitor: Arc<Mutex<ProcessMonitor>>,
 }
 
+/// Decrement pin_order for all pinned sessions above the removed order.
+fn compact_pin_orders(sessions: &mut HashMap<String, Session>, removed_order: i32) {
+    for s in sessions.values_mut() {
+        if let Some(order) = s.pin_order {
+            if s.pinned && order > removed_order {
+                s.pin_order = Some(order - 1);
+            }
+        }
+    }
+}
+
 impl SessionManager {
     pub fn new() -> Self {
         SessionManager {
@@ -140,7 +159,10 @@ impl SessionManager {
 
         // Auto-create session if it doesn't exist (for any event type)
         if !sessions.contains_key(&event.session_id) && name != "SessionEnd" {
-            let source = event.source.clone().unwrap_or_else(|| "unknown".to_string());
+            let source = event
+                .source
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
             let session = Session::new(
                 event.session_id.clone(),
                 event.cwd.clone(),
@@ -161,7 +183,10 @@ impl SessionManager {
 
         let changed = match name {
             "SessionStart" => {
-                let source = event.source.clone().unwrap_or_else(|| "unknown".to_string());
+                let source = event
+                    .source
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string());
                 let session = Session::new(
                     event.session_id.clone(),
                     event.cwd.clone(),
@@ -172,7 +197,14 @@ impl SessionManager {
                 true
             }
             "SessionEnd" => {
+                // Get pin_order before removing to adjust other sessions
+                let pin_order = sessions.get(&event.session_id).and_then(|s| s.pin_order);
                 sessions.remove(&event.session_id);
+
+                if let Some(order) = pin_order {
+                    compact_pin_orders(&mut sessions, order);
+                }
+
                 let mut selected = self.selected_session.lock().unwrap();
                 if selected.as_ref() == Some(&event.session_id) {
                     *selected = None;
@@ -249,30 +281,37 @@ impl SessionManager {
 
         let mut sessions = self.sessions.lock().unwrap();
         let mut changed = false;
-        let mut to_remove = Vec::new();
+        let mut to_remove: Vec<(String, Option<i32>)> = Vec::new();
 
         for (id, session) in sessions.iter_mut() {
             let elapsed = session.last_activity.elapsed();
 
             // PID-based removal: process is confirmed dead
             if session.pid.is_some_and(|pid| dead_pid_set.contains(&pid)) {
-                to_remove.push(id.clone());
+                to_remove.push((id.clone(), session.pin_order));
                 changed = true;
                 continue;
             }
 
             // Fallback timeout-based removal (for sessions without a resolved PID)
             if session.pid.is_none() && elapsed > Duration::from_secs(REMOVE_TIMEOUT_SECS) {
-                to_remove.push(id.clone());
+                to_remove.push((id.clone(), session.pin_order));
                 changed = true;
             }
         }
 
-        for id in to_remove {
+        // Sort by pin_order descending to avoid index shifting issues
+        to_remove.sort_by(|a, b| b.1.cmp(&a.1));
+
+        for (id, pin_order) in to_remove {
             sessions.remove(&id);
             let mut selected = self.selected_session.lock().unwrap();
             if selected.as_ref() == Some(&id) {
                 *selected = None;
+            }
+            drop(selected);
+            if let Some(order) = pin_order {
+                compact_pin_orders(&mut sessions, order);
             }
         }
 
@@ -286,7 +325,12 @@ impl SessionManager {
 
         let mut infos: Vec<SessionInfo> =
             sessions.values().map(|s| s.to_info(&active_id)).collect();
-        infos.sort_by(|a, b| b.last_activity_ms.cmp(&a.last_activity_ms));
+        infos.sort_by(|a, b| match (a.pinned, b.pinned) {
+            (true, true) => a.pin_order.cmp(&b.pin_order),
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            (false, false) => b.last_activity_ms.cmp(&a.last_activity_ms),
+        });
         infos
     }
 
@@ -318,6 +362,78 @@ impl SessionManager {
     /// Returns true if a Stop event just occurred (for playing sound)
     pub fn is_stop_event(event: &HookEvent) -> bool {
         event.hook_event_name == "Stop"
+    }
+
+    pub fn pin_session(&self, session_id: &str) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().unwrap();
+
+        // Check if already pinned first
+        if let Some(session) = sessions.get(session_id) {
+            if session.pinned {
+                return Ok(());
+            }
+        } else {
+            return Err(format!("Session not found: {}", session_id));
+        }
+
+        // Find the maximum pin order among current pinned sessions
+        let max_order = sessions
+            .values()
+            .filter(|s| s.pinned)
+            .map(|s| s.pin_order.unwrap_or(0))
+            .max()
+            .unwrap_or(-1);
+
+        // Now get mutable reference and update
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session not found: {}", session_id))?;
+
+        session.pinned = true;
+        session.pin_order = Some(max_order + 1);
+        Ok(())
+    }
+
+    pub fn unpin_session(&self, session_id: &str) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().unwrap();
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| format!("Session not found: {}", session_id))?;
+
+        if !session.pinned {
+            return Ok(());
+        }
+
+        let removed_order = session.pin_order.unwrap_or(0);
+        session.pinned = false;
+        session.pin_order = None;
+
+        compact_pin_orders(&mut sessions, removed_order);
+
+        Ok(())
+    }
+
+    pub fn reorder_pinned_sessions(&self, ordered_ids: Vec<String>) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().unwrap();
+
+        // Verify all IDs belong to pinned sessions
+        for id in &ordered_ids {
+            let session = sessions
+                .get(id)
+                .ok_or_else(|| format!("Session not found: {}", id))?;
+            if !session.pinned {
+                return Err(format!("Session is not pinned: {}", id));
+            }
+        }
+
+        // Update pin orders based on new sequence
+        for (index, id) in ordered_ids.iter().enumerate() {
+            if let Some(session) = sessions.get_mut(id) {
+                session.pin_order = Some(index as i32);
+            }
+        }
+
+        Ok(())
     }
 }
 

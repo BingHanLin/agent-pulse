@@ -551,6 +551,94 @@ html, body {
 }
 
 /* ============================================================
+   Pin Icon
+   ============================================================ */
+.row-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s ease, opacity 0.15s ease, width 0.15s ease, margin 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.row-pin.pin-hidden {
+  width: 0;
+  overflow: hidden;
+  margin-right: -10px; /* compensate for row gap */
+}
+
+.session-row:hover .row-pin.pin-hidden {
+  width: 20px;
+  margin-right: 0;
+  overflow: visible;
+}
+
+.row-pin:hover {
+  background: var(--ctrl-bg-hover);
+}
+
+/* Prevent pin icon from interfering with drag */
+.row-pin svg {
+  pointer-events: none;
+}
+
+.pin-icon {
+  transition: opacity 0.15s ease;
+}
+
+.pin-icon.pinned {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.pin-icon.unpinned {
+  color: var(--text-dim);
+  opacity: 0;
+}
+
+.session-row:hover .pin-icon.unpinned {
+  opacity: 0.4;
+}
+
+.pin-icon.unpinned:hover {
+  opacity: 1 !important;
+}
+
+/* ============================================================
+   Drag and Drop (mouse-event based)
+   ============================================================ */
+.session-row.pinned-row {
+  cursor: grab;
+}
+
+.session-row.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.session-row.drag-over {
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 0 2px var(--color-working);
+}
+
+/* ============================================================
+   Pinned/Unpinned Separator
+   ============================================================ */
+.pinned-separator {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 1px 12px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ============================================================
    Scrollbar (minimal)
    ============================================================ */
 ::-webkit-scrollbar {
