@@ -33,6 +33,10 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 "settings" => {
+                    if let Some(window) = app.get_webview_window("capsule") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
                     let _ = app.emit("show-settings", ());
                 }
                 "quit" => {

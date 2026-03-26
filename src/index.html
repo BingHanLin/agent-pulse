@@ -3,25 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClaudePulse</title>
+  <title>Agent Pulse</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="capsule" class="capsule">
     <!-- Title bar -->
     <div class="title-bar" data-tauri-drag-region>
-      <span class="title-text" data-tauri-drag-region>Claude Pulse</span>
-      <button class="settings-btn" id="settingsBtn" title="Settings" aria-label="Open settings">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Gear -->
-          <g class="icon-gear">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </g>
-          <!-- Chevron up -->
-          <polyline class="icon-chevron" points="18 15 12 9 6 15"/>
-        </svg>
-      </button>
+      <span class="title-text" data-tauri-drag-region>Agent Pulse</span>
+      <div class="title-controls">
+        <button class="settings-btn" id="settingsBtn" title="Settings" aria-label="Open settings">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <!-- Gear -->
+            <g class="icon-gear">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </g>
+            <!-- Chevron up -->
+            <polyline class="icon-chevron" points="18 15 12 9 6 15"/>
+          </svg>
+        </button>
+        <button class="window-btn" id="minimizeBtn" title="Minimize to tray" aria-label="Minimize to tray">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <button class="window-btn close-btn" id="closeBtn" title="Close" aria-label="Close">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Session list (always visible) -->
@@ -32,7 +44,7 @@
 
       <!-- Status Colors -->
       <div class="settings-group">
-        <label class="settings-label">Status Colors <span class="hint-icon" data-hint="Working: Claude is processing a task&#10;Waiting: Claude needs your permission&#10;Idle: Session open but not active">?</span></label>
+        <label class="settings-label">Status Colors <span class="hint-icon" data-hint="Working: Agent is processing a task&#10;Waiting: Agent needs your permission&#10;Idle: Session open but not active">?</span></label>
         <div class="color-row">
           <div class="color-field">
             <input type="color" class="color-picker" id="colorWorking">
@@ -71,7 +83,7 @@
 
       <!-- Notifications -->
       <div class="settings-group">
-        <label class="settings-label">Notifications <span class="hint-icon" data-hint="Sound plays when Claude finishes a task (Stop event)">?</span></label>
+        <label class="settings-label">Notifications <span class="hint-icon" data-hint="Sound plays when agent finishes a task (Stop event)">?</span></label>
         <div class="settings-row">
           <span class="settings-inline-label">Sound</span>
           <button class="toggle-btn" id="soundToggle">On</button>

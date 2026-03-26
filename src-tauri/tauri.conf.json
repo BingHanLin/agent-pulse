@@ -22,6 +22,7 @@
         "focus": true,
         "center": true,
         "y": 8,
+        "shadow": true,
         "backgroundColor": [9, 9, 11, 255]
       }
     ],

@@ -24,7 +24,7 @@ fn helper_script_path() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".claude").join("agent-pulse-hook.sh"))
 }
 
-fn helper_script_content(port: u16) -> String {
+fn helper_script_content(port: u16, source: &str) -> String {
     format!(
         r#"#!/bin/bash
 # Agent Pulse hook helper — injects PID and forwards to webhook server
@@ -39,7 +39,7 @@ find_claude_pid() {{
       for (\$i = 0; \$i -lt 10; \$i++) {{
         \$proc = Get-CimInstance Win32_Process -Filter ('ProcessId='+\$p) -EA SilentlyContinue
         if (-not \$proc) {{ break }}
-        if (\$proc.Name -match 'claude') {{ \$proc.ProcessId; break }}
+        if (\$proc.Name -match 'claude' -or \$proc.CommandLine -match 'claude-code') {{ \$proc.ProcessId; break }}
         \$p = \$proc.ParentProcessId
       }}
     " 2>/dev/null | tr -dc '0-9'
@@ -49,7 +49,9 @@ find_claude_pid() {{
     for _ in $(seq 1 10); do
       [ -d "/proc/$P" ] || break
       local NAME=$(cat /proc/$P/comm 2>/dev/null)
+      local CMDL=$(tr '\0' ' ' < /proc/$P/cmdline 2>/dev/null)
       if echo "$NAME" | grep -qi claude; then echo "$P"; return; fi
+      if echo "$CMDL" | grep -qi claude-code; then echo "$P"; return; fi
       P=$(awk '{{print $4}}' /proc/$P/stat 2>/dev/null)
       [ -z "$P" ] || [ "$P" = "0" ] || [ "$P" = "1" ] && break
     done
@@ -60,14 +62,22 @@ find_claude_pid() {{
       local NAME=$(ps -p "$P" -o comm= 2>/dev/null)
       [ -z "$NAME" ] && break
       if echo "$NAME" | grep -qi claude; then echo "$P"; return; fi
+      local ARGS=$(ps -p "$P" -o args= 2>/dev/null)
+      if echo "$ARGS" | grep -qi claude-code; then echo "$P"; return; fi
       P=$(ps -p "$P" -o ppid= 2>/dev/null | tr -dc '0-9')
       [ -z "$P" ] || [ "$P" = "0" ] || [ "$P" = "1" ] && break
     done
   fi
 }}
 
+# Capture stdin immediately before any slow operations
+INPUT=$(cat)
 CPID=$(find_claude_pid)
-sed "s/}}$/,\"pid\":${{CPID:-0}}}}/" | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
+if echo "$INPUT" | grep -q '"source"'; then
+  echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}}}}/"
+else
+  echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}},\"source\":\"{source}\"}}/"
+fi | curl -s -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @-
 "#
     )
 }
@@ -128,16 +138,18 @@ impl HookProvider for ClaudeCodeProvider {
                 .map_err(|e| format!("Failed to create .claude dir: {}", e))?;
         }
 
-        let script_path =
-            helper_script_path().ok_or("Could not determine helper script path")?;
-        fs::write(&script_path, helper_script_content(port))
+        let script_path = helper_script_path().ok_or("Could not determine helper script path")?;
+        fs::write(&script_path, helper_script_content(port, self.id()))
             .map_err(|e| format!("Failed to write hook helper script: {}", e))?;
 
         let mut settings: Value = if path.exists() {
-            let content = fs::read_to_string(&path)
-                .map_err(|e| format!("Failed to read settings: {}", e))?;
+            let content =
+                fs::read_to_string(&path).map_err(|e| format!("Failed to read settings: {}", e))?;
             serde_json::from_str(&content).map_err(|e| {
-                format!("Failed to parse settings.json: {}. Please fix it manually.", e)
+                format!(
+                    "Failed to parse settings.json: {}. Please fix it manually.",
+                    e
+                )
             })?
         } else {
             serde_json::json!({})
@@ -166,12 +178,10 @@ impl HookProvider for ClaudeCodeProvider {
             .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
         let tmp_path = path.with_extension("json.tmp");
-        fs::write(&tmp_path, &content)
-            .map_err(|e| format!("Failed to write settings: {}", e))?;
-        fs::rename(&tmp_path, &path)
-            .map_err(|e| format!("Failed to save settings: {}", e))?;
+        fs::write(&tmp_path, &content).map_err(|e| format!("Failed to write settings: {}", e))?;
+        fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to save settings: {}", e))?;
 
-        println!("Claude Code hooks installed for port {}", port);
+        println!("Claude Code integration installed for port {}", port);
         Ok(())
     }
 
@@ -212,7 +222,7 @@ impl HookProvider for ClaudeCodeProvider {
             .map_err(|e| format!("Failed to serialize settings: {}", e))?;
         fs::write(&path, content).map_err(|e| format!("Failed to write settings: {}", e))?;
 
-        println!("Claude Code hooks removed");
+        println!("Claude Code integration removed");
         Ok(())
     }
 

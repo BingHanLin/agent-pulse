@@ -58,7 +58,9 @@ pub fn configure_provider(
     id: String,
 ) -> Result<(), String> {
     let reg = registry.lock().unwrap();
-    let provider = reg.get(&id).ok_or_else(|| format!("Unknown provider: {}", id))?;
+    let provider = reg
+        .get(&id)
+        .ok_or_else(|| format!("Unknown provider: {}", id))?;
     provider.install(port.0)?;
     drop(reg);
     let providers = registry.lock().unwrap().list();
@@ -73,7 +75,9 @@ pub fn remove_provider(
     id: String,
 ) -> Result<(), String> {
     let reg = registry.lock().unwrap();
-    let provider = reg.get(&id).ok_or_else(|| format!("Unknown provider: {}", id))?;
+    let provider = reg
+        .get(&id)
+        .ok_or_else(|| format!("Unknown provider: {}", id))?;
     provider.remove()?;
     drop(reg);
     let providers = registry.lock().unwrap().list();
@@ -103,5 +107,68 @@ pub fn set_expanded(app: AppHandle, height: u32) -> Result<(), String> {
             .set_size(size)
             .map_err(|e| format!("Failed to resize window: {}", e))?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_session(
+    app: AppHandle,
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<(), String> {
+    session_manager.remove_session(&session_id)?;
+    let sessions = session_manager.get_sessions();
+    let _ = app.emit("sessions-changed", &sessions);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn minimize_to_tray(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("capsule") {
+        window
+            .hide()
+            .map_err(|e| format!("Failed to hide window: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_app(app: AppHandle) {
+    app.exit(0);
+}
+
+#[tauri::command]
+pub fn pin_session(
+    app: AppHandle,
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<(), String> {
+    session_manager.pin_session(&session_id)?;
+    let sessions = session_manager.get_sessions();
+    let _ = app.emit("sessions-changed", &sessions);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn unpin_session(
+    app: AppHandle,
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<(), String> {
+    session_manager.unpin_session(&session_id)?;
+    let sessions = session_manager.get_sessions();
+    let _ = app.emit("sessions-changed", &sessions);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_pinned_sessions(
+    app: AppHandle,
+    session_manager: State<'_, SessionManager>,
+    ordered_ids: Vec<String>,
+) -> Result<(), String> {
+    session_manager.reorder_pinned_sessions(ordered_ids)?;
+    let sessions = session_manager.get_sessions();
+    let _ = app.emit("sessions-changed", &sessions);
     Ok(())
 }

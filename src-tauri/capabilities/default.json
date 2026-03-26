@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui-org/nicegui/main/nicegui/static/tauri/capabilities-schema.json",
   "identifier": "default",
-  "description": "Default capabilities for ClaudePulse",
+  "description": "Default capabilities for Agent Pulse",
   "windows": ["capsule"],
   "permissions": [
     "core:default",
