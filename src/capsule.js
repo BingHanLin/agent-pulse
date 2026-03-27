@@ -91,6 +91,13 @@ async function init() {
     playWaitingSound();
   });
 
+  await listen('unconfigured-providers', (event) => {
+    const names = event.payload;
+    if (names && names.length > 0) {
+      showSetupBanner(names);
+    }
+  });
+
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     showSettings = !showSettings;
@@ -111,9 +118,42 @@ function render() {
   resizeWindow();
 }
 
+let setupBannerNames = null;
+
+function showSetupBanner(names) {
+  // Only show if no providers are configured yet
+  const anyInstalled = providers.some(p => p.installed);
+  if (anyInstalled) return;
+  setupBannerNames = names;
+  render();
+}
+
+function renderSetupBanner() {
+  if (!setupBannerNames || setupBannerNames.length === 0) return '';
+  // Hide banner once any provider is configured
+  if (providers.some(p => p.installed)) {
+    setupBannerNames = null;
+    return '';
+  }
+  return `<div class="setup-banner">
+    <div class="setup-banner-text">Configure integrations to start monitoring</div>
+    <button class="setup-banner-btn" id="openSetupBtn">Setup</button>
+  </div>`;
+}
+
 function renderSessionList() {
   if (sessions.length === 0) {
-    sessionList.innerHTML = '<div class="no-sessions">No active sessions</div>';
+    const banner = renderSetupBanner();
+    sessionList.innerHTML = '<div class="no-sessions">No active sessions</div>' + banner;
+    const setupBtn = document.getElementById('openSetupBtn');
+    if (setupBtn) {
+      setupBtn.onclick = () => {
+        showSettings = true;
+        settingsBtn.classList.add('open');
+        renderSettings();
+        resizeWindow();
+      };
+    }
     return;
   }
 
@@ -356,6 +396,10 @@ async function resizeWindow() {
   let height = TITLE_HEIGHT;
   if (sessions.length === 0) {
     height += EMPTY_HEIGHT;
+    // Add space for setup banner if visible
+    if (setupBannerNames && setupBannerNames.length > 0 && !providers.some(p => p.installed)) {
+      height += 40;
+    }
   } else {
     height += sessions.length * ROW_HEIGHT + 8;
     // Add space for separator if there are pinned sessions

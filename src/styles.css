@@ -334,10 +334,38 @@ html, body {
 /* ---- Empty State ---- */
 .no-sessions {
   text-align: center;
-  padding: 16px;
+  padding: 16px 16px 4px;
   color: var(--text-dim);
   font-size: var(--font-sm);
   font-weight: 400;
+}
+
+.setup-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 12px 10px;
+}
+
+.setup-banner-text {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+}
+
+.setup-banner-btn {
+  background: var(--color-working);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 12px;
+  font-size: var(--font-xs);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.setup-banner-btn:hover {
+  opacity: 0.85;
 }
 
 /* ============================================================

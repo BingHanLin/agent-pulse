@@ -16,6 +16,21 @@ use webhook_server::WebhookServer;
 
 pub struct ServerPort(pub u16);
 
+/// Remove all provider integrations (hook scripts, settings entries, plugins).
+/// Called with `--cleanup` during uninstall.
+pub fn cleanup() {
+    let registry = providers::create_registry();
+    for info in registry.list() {
+        if info.installed {
+            if let Some(provider) = registry.get(&info.id) {
+                if let Err(e) = provider.remove() {
+                    eprintln!("Failed to remove {}: {}", info.id, e);
+                }
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -72,17 +87,18 @@ pub fn run() {
                 // Store the port
                 app_handle_server.manage(ServerPort(server.port()));
 
-                // Auto-configure providers that aren't installed yet
+                // Check if any providers need configuration and notify frontend
                 let registry = app_handle_server.state::<Mutex<ProviderRegistry>>();
                 let reg = registry.lock().unwrap();
-                for provider in reg.list() {
-                    if !provider.installed {
-                        if let Some(p) = reg.get(&provider.id) {
-                            if let Err(e) = p.install(server.port()) {
-                                eprintln!("Failed to auto-configure {}: {}", provider.id, e);
-                            }
-                        }
-                    }
+                let unconfigured: Vec<String> = reg
+                    .list()
+                    .iter()
+                    .filter(|p| !p.installed)
+                    .map(|p| p.display_name.clone())
+                    .collect();
+                drop(reg);
+                if !unconfigured.is_empty() {
+                    let _ = app_handle_server.emit("unconfigured-providers", &unconfigured);
                 }
             });
 
