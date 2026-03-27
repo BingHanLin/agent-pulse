@@ -31,7 +31,7 @@ pub enum Theme {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            color_working: "#a78bfa".to_string(),
+            color_working: "#4ade80".to_string(),
             color_waiting: "#fbbf24".to_string(),
             color_idle: "#71717a".to_string(),
             text_size: TextSize::Medium,
