@@ -82,6 +82,16 @@ jobs:
         shell: pwsh
         run: |
           $exe = "src-tauri/target/${{ matrix.target }}/release/agent-pulse.exe"
+          if (-not (Test-Path $exe)) {
+            $exe = "src-tauri/target/release/agent-pulse.exe"
+          }
+          if (-not (Test-Path $exe)) {
+            Write-Host "agent-pulse.exe not found. Contents of src-tauri/target:"
+            Get-ChildItem -Path "src-tauri/target" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.DirectoryName -notmatch 'deps' } |
+              ForEach-Object { Write-Host $_.FullName }
+            throw "agent-pulse.exe not found in target directory"
+          }
           $zip = "AgentPulse-${{ github.ref_name }}-x64-portable.zip"
           Compress-Archive -Path $exe -DestinationPath $zip
 
