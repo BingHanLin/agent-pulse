@@ -81,7 +81,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $exe = "src-tauri/target/${{ matrix.target }}/release/AgentPulse.exe"
+          $exe = "src-tauri/target/${{ matrix.target }}/release/agent-pulse.exe"
           $zip = "AgentPulse-${{ github.ref_name }}-x64-portable.zip"
           Compress-Archive -Path $exe -DestinationPath $zip
 
