@@ -37,7 +37,7 @@ More agents can be added — contributions welcome!
 
 ### Install
 
-Download the latest release for your platform from the [Releases](https://github.com/AgeOfMarcus/agent-pulse/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/BingHanLin/agent-pulse/releases) page.
 
 ### Setup
 
