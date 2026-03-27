@@ -31,7 +31,7 @@ fn plugin_content(port: u16) -> String {
 // Debounce trick:
 //   OpenCode emits session.status "busy" ~35ms before "idle" at task
 //   completion. Without debouncing, the late "busy" POST can arrive
-//   after "idle" and flip the state back to Working. We use a 100ms
+//   after "idle" and flip the state back to Working. We use a 500ms
 //   setTimeout on "busy" so that a following "idle" within that window
 //   cancels the pending UserPromptSubmit via clearTimeout.
 
@@ -43,7 +43,7 @@ export const AgentPulse = async ({{ directory }}) => {{
   const cwd = directory || process.cwd();
   const pid = process.pid;
 
-  const send = async (hookEventName, extra = {{}}) => {{
+  const send = async (hookEventName, extra = {{}}, retries = 0) => {{
     try {{
       await fetch(URL, {{
         method: "POST",
@@ -57,7 +57,12 @@ export const AgentPulse = async ({{ directory }}) => {{
           ...extra,
         }}),
       }});
-    }} catch {{}}
+    }} catch {{
+      if (retries < 2) {{
+        await new Promise(r => setTimeout(r, 200));
+        return send(hookEventName, extra, retries + 1);
+      }}
+    }}
   }};
 
   await send("SessionStart");
@@ -75,7 +80,7 @@ export const AgentPulse = async ({{ directory }}) => {{
         case "session.status":
           if (p.status?.type === "busy") {{
             clearTimeout(busyTimer);
-            busyTimer = setTimeout(() => send("UserPromptSubmit"), 100);
+            busyTimer = setTimeout(() => send("UserPromptSubmit"), 500);
           }} else if (p.status?.type === "idle") {{
             clearTimeout(busyTimer);
             await send("Stop");
