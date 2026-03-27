@@ -87,6 +87,10 @@ async function init() {
     playCompleteSound();
   });
 
+  await listen('play-waiting-sound', () => {
+    playWaitingSound();
+  });
+
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     showSettings = !showSettings;
@@ -491,6 +495,30 @@ function playCompleteSound() {
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
       osc.start(start);
       osc.stop(start + 0.4);
+    });
+  } catch (e) {}
+}
+
+function playWaitingSound() {
+  if (!settings.soundOnComplete) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+
+    // Three short descending notes to signal "attention needed"
+    const notes = [880, 660, 880];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'triangle';
+      const start = now + i * 0.15;
+      gain.gain.setValueAtTime(0.2, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+      osc.start(start);
+      osc.stop(start + 0.25);
     });
   } catch (e) {}
 }

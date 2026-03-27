@@ -96,6 +96,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 while let Some(event) = rx.recv().await {
                     let is_stop = SessionManager::is_stop_event(&event);
+                    let is_waiting = SessionManager::is_waiting_event(&event);
                     let changed = session_manager_rx.handle_event(&event);
 
                     if changed {
@@ -105,6 +106,10 @@ pub fn run() {
 
                     if is_stop && sound_enabled {
                         let _ = app_handle_rx.emit("play-sound", ());
+                    }
+
+                    if is_waiting && sound_enabled {
+                        let _ = app_handle_rx.emit("play-waiting-sound", ());
                     }
                 }
             });

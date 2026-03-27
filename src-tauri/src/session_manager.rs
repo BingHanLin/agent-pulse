@@ -360,6 +360,11 @@ impl SessionManager {
         event.hook_event_name == "Stop"
     }
 
+    /// Returns true if the event means the agent is waiting for user action
+    pub fn is_waiting_event(event: &HookEvent) -> bool {
+        event.hook_event_name == "PermissionRequest"
+    }
+
     pub fn remove_session(&self, session_id: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().unwrap();
         let session = sessions
