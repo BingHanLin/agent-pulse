@@ -76,3 +76,17 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }} ${{ matrix.bundles && format('--bundles {0}', matrix.bundles) || '' }}
+
+      - name: Create Windows portable zip
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/${{ matrix.target }}/release/AgentPulse.exe"
+          $zip = "AgentPulse-${{ github.ref_name }}-x64-portable.zip"
+          Compress-Archive -Path $exe -DestinationPath $zip
+
+      - name: Upload Windows portable zip
+        if: matrix.os == 'windows-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} "AgentPulse-${{ github.ref_name }}-x64-portable.zip" --clobber

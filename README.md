@@ -1,153 +1,74 @@
 # Agent Pulse
 
-A lightweight system tray app that monitors AI coding agent sessions in real-time. Built with [Tauri 2](https://tauri.app/).
+A lightweight floating widget that monitors your AI coding agent sessions in real-time.
 
 ![status](https://img.shields.io/badge/status-alpha-orange)
+![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
+![built with](https://img.shields.io/badge/built%20with-Tauri%202-24C8D8?logo=tauri&logoColor=white)
+![rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+![Agent Pulse](assets/image1.png) ![Settings](assets/image2.png)
+
+## What It Does
+
+Agent Pulse is a small always-on-top capsule that floats at the top of your screen, showing what your AI coding agents are doing — across all your projects, all in one place. No more switching between terminals to check if an agent is still working, waiting for permission, or already done.
 
 ## Supported Agents
 
-| Agent | Integration Method | Status |
-|-------|-------------------|--------|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Hook scripts in `~/.claude/settings.json` | Supported |
-| [OpenCode](https://opencode.ai) | JS plugin in `~/.config/opencode/plugins/` | Supported |
+| Agent | Status |
+|-------|--------|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Supported |
+| [OpenCode](https://opencode.ai) | Supported |
 
-Adding a new agent requires only implementing the `HookProvider` trait in a single Rust file. See [Adding a New Provider](#adding-a-new-provider).
+More agents can be added — contributions welcome!
 
 ## Features
 
-- Floating capsule widget showing active sessions and their states (Working, Waiting, Idle)
-- Per-session metrics: elapsed time, last prompt, last tool used, project name, PID
-- Configurable status colors, text size, and light/dark theme
-- Sound notification on task completion
-- Source badges (CC, OC, ...) to distinguish agent origins
-- Auto-installs hooks/plugins on first launch
+- **Live session status** — see at a glance whether each agent is Working, Waiting for input, or Idle
+- **Session details** — elapsed time, last prompt, last tool used, and project name
+- **Pin & reorder** — drag sessions to keep important ones at the top
+- **Sound alerts** — rising chime when a task completes, descending tone when permission is needed
+- **Themes** — Dark, Light, and OLED themes with customizable accent colors
+- **Text size** — Small, Medium, or Large to fit your preference
+- **Auto cleanup** — stale sessions are automatically removed when the agent process exits
 
-## How It Works
+## Getting Started
 
-```
-Agent (Claude Code / OpenCode / ...)
-  → Hook/plugin fires on session events
-  → HTTP POST to localhost:19280-19289
-  → Agent Pulse webhook server receives HookEvent
-  → SessionManager updates state machine
-  → Frontend renders session list
-```
+### Install
 
-All agents share the same webhook server and session manager. Each agent only needs a provider that knows how to install/remove its hook and translate events into the standard `HookEvent` format.
+Download the latest release for your platform from the [Releases](https://github.com/AgeOfMarcus/agent-pulse/releases) page.
 
-## Architecture
+### Setup
 
-```
-src-tauri/src/
-├── lib.rs                        # App setup, event loop, provider registry init
-├── main.rs                       # Entry point
-├── providers/
-│   ├── mod.rs                    # HookProvider trait, ProviderRegistry
-│   ├── claude.rs                 # Claude Code provider (bash hook → settings.json)
-│   └── opencode.rs               # OpenCode provider (JS plugin)
-├── commands.rs                   # Tauri IPC commands (generic provider API)
-├── session_manager.rs            # Session state machine (source-agnostic)
-├── webhook_server.rs             # HTTP POST listener for hook events
-├── process_monitor.rs            # PID liveness checks via sysinfo
-├── settings.rs                   # User preferences (colors, theme, sound)
-└── tray.rs                       # System tray menu
+1. Open the settings panel (gear icon)
+2. Click **Configure** next to the agent you want to connect
+3. That's it — start using your agents as usual and sessions will appear in the widget
 
-src/
-├── index.html                    # UI layout
-├── capsule.js                    # Frontend logic (vanilla JS, dynamic provider UI)
-└── styles.css                    # Design system (dark/light themes)
-```
+### Usage
 
-## Development
+- The capsule floats at the top of your screen, showing all active agent sessions
+- Each session displays its current state: **Working** (agent is running), **Waiting** (agent needs permission), or **Idle** (agent finished)
+- Right-click the system tray icon to show/hide the widget, open settings, or quit
+- Customize theme, colors, text size, and sound alerts in the settings panel
+
+## Building from Source
 
 ### Prerequisites
 
 - [Rust](https://rustup.rs/) (stable)
 - [Node.js](https://nodejs.org/) (for Tauri CLI)
-- Platform-specific Tauri dependencies: see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
-
-### Run
+- Platform-specific dependencies: see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 ```bash
 npm install
-npm run tauri dev
+npm run tauri dev    # Run in dev mode
+npm run tauri build  # Production build
 ```
 
-### Build
+## Contributing
 
-```bash
-npm run tauri build
-```
-
-### Test
-
-```bash
-cd src-tauri && cargo test
-```
-
-## Adding a New Provider
-
-1. Create `src-tauri/src/providers/myagent.rs`:
-
-```rust
-use super::HookProvider;
-
-pub struct MyAgentProvider;
-
-impl HookProvider for MyAgentProvider {
-    fn id(&self) -> &str { "myagent" }
-    fn display_name(&self) -> &str { "My Agent" }
-    fn badge_label(&self) -> &str { "MA" }
-    fn badge_color(&self) -> &str { "#60a5fa" }
-
-    fn install(&self, port: u16) -> Result<(), String> {
-        // Write hook/plugin config that POSTs HookEvents to 127.0.0.1:{port}
-        todo!()
-    }
-
-    fn remove(&self) -> Result<(), String> {
-        // Remove the hook/plugin config
-        todo!()
-    }
-
-    fn is_installed(&self) -> bool {
-        // Check if the hook/plugin config exists
-        todo!()
-    }
-}
-```
-
-2. Register it in `src-tauri/src/providers/mod.rs`:
-
-```rust
-pub mod myagent;
-
-// In create_registry():
-registry.register(Box::new(myagent::MyAgentProvider));
-```
-
-That's it. The frontend auto-discovers providers via `get_providers()` and renders them dynamically.
-
-### HookEvent Format
-
-Your agent's hook/plugin must POST JSON to `http://127.0.0.1:{port}`:
-
-```json
-{
-  "session_id": "unique-session-id",
-  "hook_event_name": "SessionStart",
-  "cwd": "/path/to/project",
-  "pid": 12345,
-  "source": "myagent"
-}
-```
-
-Supported `hook_event_name` values:
-- `SessionStart` / `SessionEnd` — session lifecycle
-- `UserPromptSubmit` — user sent a prompt (sets Working state)
-- `PreToolUse` / `PostToolUse` — tool execution (include `tool_name`)
-- `PermissionRequest` — waiting for user approval (sets WaitingForUser state)
-- `Stop` — agent finished responding (sets Idle state)
+Want to add support for another AI agent? Check out the [contributor guide](CONTRIBUTING.md) or look at the existing providers in `src-tauri/src/providers/` for examples. Each agent integration is a single Rust file.
 
 ## License
 
