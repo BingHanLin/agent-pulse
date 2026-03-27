@@ -18,4 +18,6 @@ Thumbs.db
 
 # Tauri
 src-tauri/gen/
-.claude/
+
+
+.claude/settings.local.json
