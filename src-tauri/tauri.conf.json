@@ -42,7 +42,7 @@
     ],
     "linux": {
       "deb": {
-        "preRemove": "deb-prerm.sh"
+        "preRemoveScript": "deb-prerm.sh"
       }
     },
     "windows": {
