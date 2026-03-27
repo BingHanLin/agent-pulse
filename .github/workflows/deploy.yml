@@ -49,6 +49,19 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      - name: Generate .icns icon (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p src-tauri/icons/icon.iconset
+          for size in 16 32 128 256 512; do
+            sips -z $size $size src-tauri/icons/icon.png --out src-tauri/icons/icon.iconset/icon_${size}x${size}.png
+            double=$((size * 2))
+            sips -z $double $double src-tauri/icons/icon.png --out src-tauri/icons/icon.iconset/icon_${size}x${size}@2x.png
+          done
+          iconutil -c icns src-tauri/icons/icon.iconset -o src-tauri/icons/icon.icns
+          # Add .icns to the Tauri icon list for macOS bundling
+          sed -i '' 's|"icons/icon.png"|"icons/icon.png",\n        "icons/icon.icns"|' src-tauri/tauri.conf.json
+
       - name: Install frontend dependencies
         run: npm install
 
