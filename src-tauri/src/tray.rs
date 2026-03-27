@@ -14,11 +14,11 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let menu = Menu::with_items(app, &[&show_hide, &sep1, &settings, &sep2, &quit])?;
 
-    let icon = Image::from_bytes(include_bytes!("../icons/icon.png"))?;
+    let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
 
     let _tray = TrayIconBuilder::new()
         .icon(icon)
-        .icon_as_template(true)
+        .icon_as_template(false)
         .menu(&menu)
         .tooltip("AgentPulse")
         .on_menu_event(move |app, event| {

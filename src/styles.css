@@ -89,6 +89,13 @@ html, body {
   cursor: default;
 }
 
+.title-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
+  pointer-events: none;
+}
+
 .title-text {
   font-size: var(--font-xs);
   font-weight: 600;
