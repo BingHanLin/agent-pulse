@@ -53,6 +53,7 @@ async function init() {
   ]);
 
   setupDragListeners();
+  setupRowClickDelegation();
   applySettings();
   render();
   startTimer();
@@ -187,7 +188,7 @@ function renderSessionList() {
     
     return `
       <div class="session-row ${stateClass} ${pinnedClass}" data-id="${s.id}">
-        <div class="row-pin ${hasPinnedSessions ? '' : 'pin-hidden'}" onclick="event.stopPropagation(); togglePin('${s.id}')">
+        <div class="row-pin ${hasPinnedSessions ? '' : 'pin-hidden'}">
           ${pinIcon}
         </div>
         <div class="row-dot-container">
@@ -200,7 +201,7 @@ function renderSessionList() {
         </div>
         <span class="row-state">${stateLabels[s.state] || s.state}</span>
         <span class="row-timer">${formatElapsed(s.startTimeMs)}</span>
-        <div class="row-close" onclick="event.stopPropagation(); removeSession('${s.id}')">
+        <div class="row-close">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
@@ -338,6 +339,25 @@ function applyReorder(draggedId, targetId) {
   renderSessionList();
   resizeWindow();
   reorderPinnedSessions(pinnedIds);
+}
+
+function setupRowClickDelegation() {
+  sessionList.addEventListener('click', (e) => {
+    const row = e.target.closest('.session-row');
+    if (!row) return;
+    const id = row.dataset.id;
+
+    if (e.target.closest('.row-close')) {
+      e.stopPropagation();
+      removeSession(id);
+      return;
+    }
+    if (e.target.closest('.row-pin')) {
+      e.stopPropagation();
+      togglePin(id);
+      return;
+    }
+  });
 }
 
 function renderSettings() {
