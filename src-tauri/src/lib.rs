@@ -60,7 +60,6 @@ pub fn run() {
                 .app_data_dir()
                 .expect("Failed to get app data dir");
             let settings_store = SettingsStore::new(app_data_dir);
-            let sound_enabled = settings_store.get().sound_on_complete;
             app.manage(Mutex::new(settings_store));
 
             // Initialize session manager
@@ -119,6 +118,13 @@ pub fn run() {
                         let sessions = session_manager_rx.get_sessions();
                         let _ = app_handle_rx.emit("sessions-changed", &sessions);
                     }
+
+                    let sound_enabled = app_handle_rx
+                        .state::<Mutex<SettingsStore>>()
+                        .lock()
+                        .unwrap()
+                        .get()
+                        .sound_on_complete;
 
                     if is_stop && sound_enabled {
                         let _ = app_handle_rx.emit("play-sound", ());
