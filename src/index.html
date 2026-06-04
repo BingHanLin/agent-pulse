@@ -8,6 +8,19 @@
 </head>
 <body>
   <div id="capsule" class="capsule">
+    <!-- Collapsed status pill (compact mode) -->
+    <div class="collapsed-pill" id="collapsedPill">
+      <div class="pill-content" data-tauri-drag-region>
+        <img src="icon.svg" class="pill-icon" data-tauri-drag-region alt="">
+        <div class="pill-groups" id="pillGroups" data-tauri-drag-region></div>
+      </div>
+      <button class="pill-expand-btn" id="pillExpandBtn" title="Expand" aria-label="Expand">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- Title bar -->
     <div class="title-bar" data-tauri-drag-region>
       <img src="icon.svg" class="title-icon" data-tauri-drag-region alt="">
@@ -22,6 +35,11 @@
             </g>
             <!-- Chevron up -->
             <polyline class="icon-chevron" points="18 15 12 9 6 15"/>
+          </svg>
+        </button>
+        <button class="window-btn" id="collapseBtn" title="Collapse to pill" aria-label="Collapse to pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"/>
           </svg>
         </button>
         <button class="window-btn close-btn" id="closeBtn" title="Hide to tray" aria-label="Hide to tray">
@@ -73,6 +91,29 @@
             <button class="size-btn" data-size="small">S</button>
             <button class="size-btn" data-size="medium">M</button>
             <button class="size-btn" data-size="large">L</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Behavior -->
+      <div class="settings-group">
+        <label class="settings-label">Behavior <span class="hint-icon" data-hint="Compact: shrink to a small status pill; click to expand, click away to collapse&#10;Dim when idle: fade the window when no agent is active&#10;Click-through: let clicks pass through while idle">?</span></label>
+        <div class="settings-section">
+          <div class="settings-row">
+            <span class="settings-inline-label">Compact</span>
+            <button class="toggle-btn" id="compactToggle">On</button>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-row">
+            <span class="settings-inline-label">Dim when idle</span>
+            <button class="toggle-btn" id="dimToggle">On</button>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-row">
+            <span class="settings-inline-label">Click-through</span>
+            <button class="toggle-btn" id="clickThroughToggle">Off</button>
           </div>
         </div>
       </div>

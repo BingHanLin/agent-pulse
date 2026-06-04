@@ -29,13 +29,18 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         if window.is_visible().unwrap_or(false) {
                             let _ = window.hide();
                         } else {
+                            // Make sure the window is interactive even if it was
+                            // left click-through while idle.
+                            let _ = window.set_ignore_cursor_events(false);
                             let _ = window.show();
                             let _ = window.set_focus();
+                            let _ = app.emit("force-interactive", ());
                         }
                     }
                 }
                 "settings" => {
                     if let Some(window) = app.get_webview_window("capsule") {
+                        let _ = window.set_ignore_cursor_events(false);
                         let _ = window.show();
                         let _ = window.set_focus();
                     }

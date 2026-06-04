@@ -10,12 +10,33 @@ let timerInterval = null;
 const ROW_HEIGHT = 48;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
-const SETTINGS_HEIGHT = 310;
+const SETTINGS_HEIGHT = 400;
+const EXPANDED_WIDTH = 360;
+const COLLAPSED_HEIGHT = 34;
 let lastHeight = null;
+let lastWidth = null;
+
+// Compact-mode display state
+let displayMode = 'expanded'; // 'collapsed' | 'expanded'
+let expandedByUser = false; // user clicked the pill to expand
+let manualEngage = false; // user opened it from the tray; keep interactive until blur
+let lastIdleKey = null;
 
 // Window controls
 document.getElementById('closeBtn').addEventListener('click', () => {
   invoke('minimize_to_tray');
+});
+
+// Collapse back to the compact pill
+document.getElementById('collapseBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  showSettings = false;
+  settingsBtn.classList.remove('open');
+  settingsPanel.style.display = 'none';
+  expandedByUser = false;
+  manualEngage = false;
+  setupBannerNames = null;
+  updateDisplay();
 });
 
 // DOM refs
@@ -54,6 +75,7 @@ async function init() {
 
   setupDragListeners();
   setupRowClickDelegation();
+  setupExpandListeners();
   applySettings();
   render();
   startTimer();
@@ -81,7 +103,7 @@ async function init() {
     showSettings = true;
     settingsBtn.classList.add('open');
     renderSettings();
-    resizeWindow();
+    updateDisplay();
   });
 
   await listen('play-sound', () => {
@@ -90,6 +112,13 @@ async function init() {
 
   await listen('play-waiting-sound', () => {
     playWaitingSound();
+  });
+
+  // Shown via the tray while idle/click-through: keep it interactive until the
+  // pointer leaves again.
+  await listen('force-interactive', () => {
+    manualEngage = true;
+    updateDisplay();
   });
 
   await listen('unconfigured-providers', (event) => {
@@ -108,15 +137,126 @@ async function init() {
     } else {
       settingsPanel.style.display = 'none';
     }
-    resizeWindow();
+    updateDisplay();
   });
+}
+
+// --- Compact mode: collapse / expand ---
+
+function setupExpandListeners() {
+  // The ▼ button is the only click target while collapsed; the rest of the
+  // pill is a drag region for moving the window.
+  document.getElementById('pillExpandBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    expandedByUser = true;
+    updateDisplay();
+  });
+
+  // Collapse again when the window loses focus (user clicked elsewhere).
+  window.addEventListener('blur', () => {
+    expandedByUser = false;
+    manualEngage = false;
+    updateDisplay();
+  });
+}
+
+function aggregateState() {
+  const counts = { working: 0, waitingForUser: 0, idle: 0 };
+  sessions.forEach(s => { if (counts[s.state] !== undefined) counts[s.state]++; });
+  return counts;
+}
+
+function isIdleAggregate() {
+  const c = aggregateState();
+  return c.working === 0 && c.waitingForUser === 0;
+}
+
+function needsSetup() {
+  return setupBannerNames && setupBannerNames.length > 0 && !providers.some(p => p.installed);
+}
+
+function shouldExpand() {
+  if (!settings.compactMode) return true;
+  if (showSettings) return true;
+  if (manualEngage) return true;
+  if (expandedByUser) return true;
+  if (needsSetup()) return true;
+  return aggregateState().waitingForUser > 0; // waiting needs the user's attention
+}
+
+// Groups shown in the collapsed pill: always all three states (when there are
+// sessions), in a fixed order so positions don't jump around.
+function pillGroupsData() {
+  if (sessions.length === 0) return [];
+  const c = aggregateState();
+  return [
+    { state: 'working', cls: 'is-working', count: c.working },
+    { state: 'waitingForUser', cls: 'is-waiting', count: c.waitingForUser },
+    { state: 'idle', cls: 'is-idle', count: c.idle },
+  ];
+}
+
+function collapsedWidth() {
+  const n = pillGroupsData().length;
+  if (n === 0) return 104; // icon + "Idle" + expand button
+  return 60 + n * 34; // icon + groups + expand button
+}
+
+function renderCollapsedPill() {
+  const dotColors = getDotColors();
+  const groups = pillGroupsData();
+  const el = document.getElementById('pillGroups');
+  if (groups.length === 0) {
+    el.innerHTML = '<span class="pill-empty">Idle</span>';
+    return;
+  }
+  el.innerHTML = groups.map(g => {
+    const color = dotColors[g.state] || dotColors.idle;
+    const active = g.count > 0 && (g.state === 'working' || g.state === 'waitingForUser');
+    const cls = ['pill-group', active ? g.cls : '', g.count === 0 ? 'is-empty' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-tauri-drag-region>
+      <div class="pill-dot-container">
+        <div class="pill-dot" style="background:${color}"></div>
+        <div class="pill-dot-pulse" style="background:${color}"></div>
+      </div>
+      <span class="pill-count">${g.count}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateDisplay() {
+  const expand = shouldExpand();
+  displayMode = expand ? 'expanded' : 'collapsed';
+  capsule.classList.toggle('collapsed', !expand);
+
+  // The collapse button only makes sense when compact mode is enabled.
+  const collapseBtn = document.getElementById('collapseBtn');
+  if (collapseBtn) collapseBtn.style.display = settings.compactMode ? '' : 'none';
+
+  if (expand) {
+    renderSessionList();
+  } else {
+    renderCollapsedPill();
+  }
+  applyGeometry();
+  applyIdleAppearance();
+}
+
+function applyIdleAppearance() {
+  const engaged = showSettings || manualEngage || expandedByUser;
+  const idle = isIdleAggregate();
+  const dimmed = settings.dimWhenIdle && idle && !engaged && displayMode === 'collapsed';
+  const clickThrough = settings.clickThroughWhenIdle && idle && !engaged && displayMode === 'collapsed';
+  const key = `${dimmed}-${clickThrough}`;
+  if (key === lastIdleKey) return;
+  lastIdleKey = key;
+  invoke('set_idle_mode', { dimmed, clickThrough }).catch(e => console.error('set_idle_mode failed:', e));
 }
 
 // --- Rendering ---
 
 function render() {
-  renderSessionList();
-  resizeWindow();
+  updateDisplay();
 }
 
 let setupBannerNames = null;
@@ -152,7 +292,7 @@ function renderSessionList() {
         showSettings = true;
         settingsBtn.classList.add('open');
         renderSettings();
-        resizeWindow();
+        updateDisplay();
       };
     }
     return;
@@ -381,6 +521,10 @@ function renderSettings() {
   soundToggle.classList.toggle('on', settings.soundOnComplete);
   soundToggle.onclick = () => setSetting('soundOnComplete', (!settings.soundOnComplete).toString());
 
+  bindToggle('compactToggle', 'compactMode', settings.compactMode);
+  bindToggle('dimToggle', 'dimWhenIdle', settings.dimWhenIdle);
+  bindToggle('clickThroughToggle', 'clickThroughWhenIdle', settings.clickThroughWhenIdle);
+
   renderProviders();
 
   document.getElementById('resetBtn').onclick = async () => {
@@ -412,31 +556,56 @@ function renderProviders() {
 
 // --- Window resize ---
 
-async function resizeWindow() {
+function expandedHeight() {
   let height = TITLE_HEIGHT;
   if (sessions.length === 0) {
     height += EMPTY_HEIGHT;
     // Add space for setup banner if visible
-    if (setupBannerNames && setupBannerNames.length > 0 && !providers.some(p => p.installed)) {
+    if (needsSetup()) {
       height += 40;
     }
   } else {
     height += sessions.length * ROW_HEIGHT + 8;
     // Add space for separator if there are pinned sessions
-    const hasPinnedSessions = sessions.some(s => s.pinned);
-    if (hasPinnedSessions) {
+    if (sessions.some(s => s.pinned)) {
       height += 3; // Separator height (1px) + margins (2px total)
     }
   }
   if (showSettings) {
     height += SETTINGS_HEIGHT;
   }
-  if (height === lastHeight) return;
+  return height;
+}
+
+async function applyGeometry() {
+  let width, height;
+  if (displayMode === 'collapsed') {
+    width = collapsedWidth();
+    height = COLLAPSED_HEIGHT;
+  } else {
+    width = EXPANDED_WIDTH;
+    height = expandedHeight();
+  }
+  if (width === lastWidth && height === lastHeight) return;
+  lastWidth = width;
   lastHeight = height;
-  await invoke('set_expanded', { height });
+  await invoke('set_window_size', { width, height });
+}
+
+// Re-apply geometry for the current display mode (used after in-place renders).
+function resizeWindow() {
+  applyGeometry();
 }
 
 // --- Settings ---
+
+function bindToggle(elId, key, value) {
+  const btn = document.getElementById(elId);
+  if (!btn) return;
+  btn.textContent = value ? 'On' : 'Off';
+  btn.classList.toggle('on', !!value);
+  btn.onclick = () => setSetting(key, (!value).toString());
+}
 
 function bindColorPicker(settingKey) {
   const picker = document.getElementById(settingKey);
@@ -488,13 +657,15 @@ function applySettings() {
 
 async function setSetting(key, value) {
   await invoke('set_setting', { key, value });
-  if (key === 'soundOnComplete') {
+  const boolKeys = ['soundOnComplete', 'compactMode', 'dimWhenIdle', 'clickThroughWhenIdle'];
+  if (boolKeys.includes(key)) {
     settings[key] = value === 'true';
   } else {
     settings[key] = value;
   }
   applySettings();
   renderSettings();
+  updateDisplay();
 }
 
 // --- Helpers ---

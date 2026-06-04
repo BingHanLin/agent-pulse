@@ -11,6 +11,19 @@ pub struct Settings {
     pub text_size: TextSize,
     pub sound_on_complete: bool,
     pub theme: Theme,
+    /// Collapse the window to a compact status pill until clicked or attention is needed.
+    #[serde(default = "default_true")]
+    pub compact_mode: bool,
+    /// Reduce window opacity when all sessions are idle.
+    #[serde(default = "default_true")]
+    pub dim_when_idle: bool,
+    /// Let clicks pass through the window when all sessions are idle.
+    #[serde(default)]
+    pub click_through_when_idle: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -37,6 +50,9 @@ impl Default for Settings {
             text_size: TextSize::Medium,
             sound_on_complete: true,
             theme: Theme::Dark,
+            compact_mode: true,
+            dim_when_idle: true,
+            click_through_when_idle: false,
         }
     }
 }
@@ -98,6 +114,21 @@ impl SettingsStore {
             }
             "soundOnComplete" => {
                 self.settings.sound_on_complete = value
+                    .parse::<bool>()
+                    .map_err(|_| format!("Invalid boolean: {}", value))?;
+            }
+            "compactMode" => {
+                self.settings.compact_mode = value
+                    .parse::<bool>()
+                    .map_err(|_| format!("Invalid boolean: {}", value))?;
+            }
+            "dimWhenIdle" => {
+                self.settings.dim_when_idle = value
+                    .parse::<bool>()
+                    .map_err(|_| format!("Invalid boolean: {}", value))?;
+            }
+            "clickThroughWhenIdle" => {
+                self.settings.click_through_when_idle = value
                     .parse::<bool>()
                     .map_err(|_| format!("Invalid boolean: {}", value))?;
             }

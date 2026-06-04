@@ -52,6 +52,8 @@ pub fn run() {
             commands::remove_provider,
             commands::get_server_port,
             commands::set_expanded,
+            commands::set_window_size,
+            commands::set_idle_mode,
             commands::minimize_to_tray,
             commands::remove_session,
             commands::pin_session,
