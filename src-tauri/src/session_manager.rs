@@ -301,7 +301,7 @@ impl SessionManager {
         }
 
         // Sort by pin_order descending to avoid index shifting issues
-        to_remove.sort_by(|a, b| b.1.cmp(&a.1));
+        to_remove.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         for (id, pin_order) in to_remove {
             sessions.remove(&id);
