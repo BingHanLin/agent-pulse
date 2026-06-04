@@ -151,13 +151,6 @@ function setupExpandListeners() {
     expandedByUser = true;
     updateDisplay();
   });
-
-  // Collapse again when the window loses focus (user clicked elsewhere).
-  window.addEventListener('blur', () => {
-    expandedByUser = false;
-    manualEngage = false;
-    updateDisplay();
-  });
 }
 
 function aggregateState() {

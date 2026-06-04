@@ -138,11 +138,12 @@ html, body {
 }
 
 .pill-icon {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
   pointer-events: none;
-  opacity: 0.9;
+  opacity: 0.35;
+  filter: grayscale(1);
 }
 
 .pill-groups {
