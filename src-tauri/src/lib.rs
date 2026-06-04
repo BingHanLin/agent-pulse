@@ -1,4 +1,5 @@
 mod commands;
+mod platform;
 mod process_monitor;
 mod providers;
 mod session_manager;
@@ -155,6 +156,22 @@ pub fn run() {
                     }
                 }
             });
+
+            // Force window to stay above the taskbar on Windows
+            if let Some(window) = app.get_webview_window("capsule") {
+                platform::force_topmost(&window);
+
+                let window_clone = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let w = window_clone.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            platform::force_topmost(&w);
+                        });
+                    }
+                });
+            }
 
             // Setup system tray
             if let Err(e) = tray::setup_tray(app.handle()) {
