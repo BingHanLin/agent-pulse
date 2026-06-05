@@ -19,8 +19,7 @@ let lastWidth = null;
 // Compact-mode display state
 let displayMode = 'expanded'; // 'collapsed' | 'expanded'
 let expandedByUser = false; // user clicked the pill to expand
-let manualEngage = false; // user opened it from the tray; keep interactive until blur
-let lastIdleKey = null;
+let manualEngage = false; // user opened it from the tray; keep the window expanded
 
 // Window controls
 document.getElementById('closeBtn').addEventListener('click', () => {
@@ -159,17 +158,11 @@ function aggregateState() {
   return counts;
 }
 
-function isIdleAggregate() {
-  const c = aggregateState();
-  return c.working === 0 && c.waitingForUser === 0;
-}
-
 function needsSetup() {
   return setupBannerNames && setupBannerNames.length > 0 && !providers.some(p => p.installed);
 }
 
 function shouldExpand() {
-  if (!settings.compactMode) return true;
   if (showSettings) return true;
   if (manualEngage) return true;
   if (expandedByUser) return true;
@@ -222,28 +215,12 @@ function updateDisplay() {
   displayMode = expand ? 'expanded' : 'collapsed';
   capsule.classList.toggle('collapsed', !expand);
 
-  // The collapse button only makes sense when compact mode is enabled.
-  const collapseBtn = document.getElementById('collapseBtn');
-  if (collapseBtn) collapseBtn.style.display = settings.compactMode ? '' : 'none';
-
   if (expand) {
     renderSessionList();
   } else {
     renderCollapsedPill();
   }
   applyGeometry();
-  applyIdleAppearance();
-}
-
-function applyIdleAppearance() {
-  const engaged = showSettings || manualEngage || expandedByUser;
-  const idle = isIdleAggregate();
-  const dimmed = settings.dimWhenIdle && idle && !engaged && displayMode === 'collapsed';
-  const clickThrough = settings.clickThroughWhenIdle && idle && !engaged && displayMode === 'collapsed';
-  const key = `${dimmed}-${clickThrough}`;
-  if (key === lastIdleKey) return;
-  lastIdleKey = key;
-  invoke('set_idle_mode', { dimmed, clickThrough }).catch(e => console.error('set_idle_mode failed:', e));
 }
 
 // --- Rendering ---
@@ -514,10 +491,6 @@ function renderSettings() {
   soundToggle.classList.toggle('on', settings.soundOnComplete);
   soundToggle.onclick = () => setSetting('soundOnComplete', (!settings.soundOnComplete).toString());
 
-  bindToggle('compactToggle', 'compactMode', settings.compactMode);
-  bindToggle('dimToggle', 'dimWhenIdle', settings.dimWhenIdle);
-  bindToggle('clickThroughToggle', 'clickThroughWhenIdle', settings.clickThroughWhenIdle);
-
   renderProviders();
 
   document.getElementById('resetBtn').onclick = async () => {
@@ -592,14 +565,6 @@ function resizeWindow() {
 
 // --- Settings ---
 
-function bindToggle(elId, key, value) {
-  const btn = document.getElementById(elId);
-  if (!btn) return;
-  btn.textContent = value ? 'On' : 'Off';
-  btn.classList.toggle('on', !!value);
-  btn.onclick = () => setSetting(key, (!value).toString());
-}
-
 function bindColorPicker(settingKey) {
   const picker = document.getElementById(settingKey);
   picker.value = settings[settingKey] || '#a78bfa';
@@ -650,7 +615,7 @@ function applySettings() {
 
 async function setSetting(key, value) {
   await invoke('set_setting', { key, value });
-  const boolKeys = ['soundOnComplete', 'compactMode', 'dimWhenIdle', 'clickThroughWhenIdle'];
+  const boolKeys = ['soundOnComplete'];
   if (boolKeys.includes(key)) {
     settings[key] = value === 'true';
   } else {

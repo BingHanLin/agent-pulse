@@ -122,18 +122,6 @@ pub fn set_window_size(app: AppHandle, width: u32, height: u32) -> Result<(), St
     Ok(())
 }
 
-/// Apply idle appearance: optional reduced opacity and click-through.
-#[tauri::command]
-pub fn set_idle_mode(app: AppHandle, dimmed: bool, click_through: bool) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("capsule") {
-        window
-            .set_ignore_cursor_events(click_through)
-            .map_err(|e| format!("Failed to set click-through: {}", e))?;
-        crate::platform::set_window_alpha(&window, if dimmed { 0.5 } else { 1.0 });
-    }
-    Ok(())
-}
-
 #[tauri::command]
 pub fn remove_session(
     app: AppHandle,
