@@ -75,6 +75,18 @@ html, body {
 .capsule {
   background: var(--bg-base);
   overflow: hidden;
+  display: flex;
+  height: 100%;
+}
+
+/* Left column: title bar + session list. Fixed width; the settings panel
+   docks to its right when open. */
+.main-column {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 /* ============================================================
@@ -131,8 +143,7 @@ html, body {
   outline-offset: -2px;
 }
 
-.capsule.collapsed .title-bar,
-.capsule.collapsed .session-list,
+.capsule.collapsed .main-column,
 .capsule.collapsed .settings-panel {
   display: none;
 }
@@ -298,7 +309,7 @@ html, body {
 
 .settings-btn .icon-chevron {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateX(-4px);
 }
 
 .settings-btn.open .icon-gear {
@@ -308,7 +319,17 @@ html, body {
 
 .settings-btn.open .icon-chevron {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
+}
+
+/* Panel on the left → mirror the chevron so it points right (the retract direction). */
+.capsule.settings-left .settings-btn.open .icon-chevron {
+  transform: scaleX(-1);
+}
+
+.settings-btn.open {
+  color: var(--text-primary);
+  background: var(--ctrl-bg);
 }
 
 .settings-btn:hover {
@@ -518,10 +539,22 @@ html, body {
    Settings Panel
    ============================================================ */
 .settings-panel {
-  padding: 6px 12px 14px;
-  border-top: 1px solid var(--border-subtle);
-  max-height: 360px;
+  width: 300px;
+  flex-shrink: 0;
+  padding: 10px 12px 14px;
+  border-left: 1px solid var(--border-subtle);
   overflow-y: auto;
+}
+
+/* When there is no room on the right, the panel docks on the left instead:
+   reverse the row so the main column stays put, and move the border. */
+.capsule.settings-left {
+  flex-direction: row-reverse;
+}
+
+.capsule.settings-left .settings-panel {
+  border-left: none;
+  border-right: 1px solid var(--border-subtle);
 }
 
 .settings-group {

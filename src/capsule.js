@@ -1,5 +1,6 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+const tauriWindow = window.__TAURI__.window;
 
 // State
 let sessions = [];
@@ -10,11 +11,18 @@ let timerInterval = null;
 const ROW_HEIGHT = 48;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
-const SETTINGS_HEIGHT = 400;
 const EXPANDED_WIDTH = 360;
+const SETTINGS_PANEL_WIDTH = 300; // side panel docked to the right when settings open
+const SETTINGS_PANEL_MIN_HEIGHT = 400; // keep the window tall enough for the panel
 const COLLAPSED_HEIGHT = 34;
 let lastHeight = null;
 let lastWidth = null;
+
+// Settings side-panel placement
+let settingsSide = 'right';    // which side the panel opened on this session
+let settingsWasOpen = false;   // was the panel open on the previous geometry pass
+let appliedShift = 0;          // physical px the window is currently shifted left of its anchor
+let positioningBusy = false;   // guard against overlapping position shifts
 
 // Compact-mode display state
 let displayMode = 'expanded'; // 'collapsed' | 'expanded'
@@ -522,7 +530,9 @@ function renderProviders() {
 
 // --- Window resize ---
 
-function expandedHeight() {
+// Height of the left column (title bar + session list). The settings panel
+// docks to the side, so it no longer adds to this.
+function mainContentHeight() {
   let height = TITLE_HEIGHT;
   if (sessions.length === 0) {
     height += EMPTY_HEIGHT;
@@ -537,25 +547,107 @@ function expandedHeight() {
       height += 3; // Separator height (1px) + margins (2px total)
     }
   }
-  if (showSettings) {
-    height += SETTINGS_HEIGHT;
-  }
   return height;
 }
 
+function expandedHeight() {
+  const main = mainContentHeight();
+  // When the side panel is open, ensure the window is tall enough for it.
+  return showSettings ? Math.max(main, SETTINGS_PANEL_MIN_HEIGHT) : main;
+}
+
+// Pick the side the panel should open on, based on room around the window.
+// Works in physical pixels (only needs outer-position + current-monitor perms).
+// Falls back to 'right' (current behavior) if the window API is unavailable.
+async function decideSettingsSide() {
+  try {
+    const win = tauriWindow.getCurrentWindow();
+    const pos = await win.outerPosition();          // physical
+    const mon = await tauriWindow.currentMonitor(); // standalone fn in v2
+    if (!mon) return 'right';
+    const sf = mon.scaleFactor || 1;
+    const monLeft = mon.position.x;
+    const monRight = mon.position.x + mon.size.width;
+    const fullWidth = (EXPANDED_WIDTH + SETTINGS_PANEL_WIDTH) * sf;
+    const panelWidth = SETTINGS_PANEL_WIDTH * sf;
+    if (pos.x + fullWidth <= monRight) return 'right';
+    if (pos.x - panelWidth >= monLeft) return 'left';
+    return 'right';
+  } catch (e) {
+    return 'right';
+  }
+}
+
+// Slide the window so the main column stays visually fixed when the panel grows
+// on the left. Runs independently of resizing and never blocks it.
+async function setWindowSidePosition(wantLeft) {
+  if (wantLeft === (appliedShift > 0) || positioningBusy) return;
+  positioningBusy = true;
+  try {
+    const win = tauriWindow.getCurrentWindow();
+    const pos = await win.outerPosition();        // physical
+    if (wantLeft) {
+      const mon = await tauriWindow.currentMonitor();
+      const sf = (mon && mon.scaleFactor) || 1;
+      const shift = Math.round(SETTINGS_PANEL_WIDTH * sf);
+      await win.setPosition(new tauriWindow.PhysicalPosition(pos.x - shift, pos.y));
+      appliedShift = shift;
+    } else {
+      await win.setPosition(new tauriWindow.PhysicalPosition(pos.x + appliedShift, pos.y));
+      appliedShift = 0;
+    }
+  } catch (e) {
+    appliedShift = 0; // give up on the shift; next open falls back to the right
+  } finally {
+    positioningBusy = false;
+  }
+}
+
+async function applyWindowSize(width, height) {
+  if (width === lastWidth && height === lastHeight) return;
+  lastWidth = width;
+  lastHeight = height;
+  try {
+    await invoke('set_window_size', { width, height });
+  } catch (e) {}
+}
+
+// Fire-and-forget: the window-position calls must never gate the basic resize,
+// so this is intentionally not serialized.
 async function applyGeometry() {
-  let width, height;
+  let width, height, side = 'right';
+
   if (displayMode === 'collapsed') {
     width = collapsedWidth();
     height = COLLAPSED_HEIGHT;
+  } else if (showSettings) {
+    // Decide the side once, when the panel first opens, then keep it stable
+    // until it closes (so dragging the window won't flip it mid-open). Time-box
+    // it so a slow window API can't delay the panel from opening.
+    if (!settingsWasOpen) {
+      settingsSide = await Promise.race([
+        decideSettingsSide(),
+        new Promise(resolve => setTimeout(() => resolve('right'), 400)),
+      ]);
+    }
+    side = settingsSide;
+    width = EXPANDED_WIDTH + SETTINGS_PANEL_WIDTH;
+    height = expandedHeight();
   } else {
     width = EXPANDED_WIDTH;
     height = expandedHeight();
   }
-  if (width === lastWidth && height === lastHeight) return;
-  lastWidth = width;
-  lastHeight = height;
-  await invoke('set_window_size', { width, height });
+
+  settingsWasOpen = displayMode === 'expanded' && showSettings;
+
+  // Panel on the left → reverse layout and flip the collapse chevron.
+  capsule.classList.toggle('settings-left', side === 'left');
+
+  // Always resize first so the core geometry can never be blocked by a slow
+  // window-position call; then reconcile the left/right shift (no-op when the
+  // panel is on the right and the window isn't shifted).
+  await applyWindowSize(width, height);
+  await setWindowSidePosition(side === 'left');
 }
 
 // Re-apply geometry for the current display mode (used after in-place renders).
