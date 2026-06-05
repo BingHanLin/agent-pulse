@@ -2,6 +2,7 @@ use tauri::WebviewWindow;
 
 /// Force the window to stay on top of the taskbar on Windows.
 /// No-op on other platforms.
+#[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
 pub fn force_topmost(window: &WebviewWindow) {
     #[cfg(target_os = "windows")]
     {
