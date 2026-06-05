@@ -1,5 +1,6 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+const tauriWindow = window.__TAURI__.window;
 
 // State
 let sessions = [];
@@ -10,12 +11,39 @@ let timerInterval = null;
 const ROW_HEIGHT = 48;
 const TITLE_HEIGHT = 36;
 const EMPTY_HEIGHT = 52;
-const SETTINGS_HEIGHT = 310;
+const EXPANDED_WIDTH = 360;
+const SETTINGS_PANEL_WIDTH = 300; // side panel docked to the right when settings open
+const SETTINGS_PANEL_MIN_HEIGHT = 400; // keep the window tall enough for the panel
+const COLLAPSED_HEIGHT = 34;
 let lastHeight = null;
+let lastWidth = null;
+
+// Settings side-panel placement
+let settingsSide = 'right';    // which side the panel opened on this session
+let settingsWasOpen = false;   // was the panel open on the previous geometry pass
+let appliedShift = 0;          // physical px the window is currently shifted left of its anchor
+let positioningBusy = false;   // guard against overlapping position shifts
+
+// Compact-mode display state
+let displayMode = 'expanded'; // 'collapsed' | 'expanded'
+let expandedByUser = false; // user clicked the pill to expand
+let manualEngage = false; // user opened it from the tray; keep the window expanded
 
 // Window controls
 document.getElementById('closeBtn').addEventListener('click', () => {
   invoke('minimize_to_tray');
+});
+
+// Collapse back to the compact pill
+document.getElementById('collapseBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  showSettings = false;
+  settingsBtn.classList.remove('open');
+  settingsPanel.style.display = 'none';
+  expandedByUser = false;
+  manualEngage = false;
+  setupBannerNames = null;
+  updateDisplay();
 });
 
 // DOM refs
@@ -54,6 +82,7 @@ async function init() {
 
   setupDragListeners();
   setupRowClickDelegation();
+  setupExpandListeners();
   applySettings();
   render();
   startTimer();
@@ -81,7 +110,7 @@ async function init() {
     showSettings = true;
     settingsBtn.classList.add('open');
     renderSettings();
-    resizeWindow();
+    updateDisplay();
   });
 
   await listen('play-sound', () => {
@@ -90,6 +119,13 @@ async function init() {
 
   await listen('play-waiting-sound', () => {
     playWaitingSound();
+  });
+
+  // Shown via the tray while idle/click-through: keep it interactive until the
+  // pointer leaves again.
+  await listen('force-interactive', () => {
+    manualEngage = true;
+    updateDisplay();
   });
 
   await listen('unconfigured-providers', (event) => {
@@ -108,15 +144,97 @@ async function init() {
     } else {
       settingsPanel.style.display = 'none';
     }
-    resizeWindow();
+    updateDisplay();
   });
+}
+
+// --- Compact mode: collapse / expand ---
+
+function setupExpandListeners() {
+  // The ▼ button is the only click target while collapsed; the rest of the
+  // pill is a drag region for moving the window.
+  document.getElementById('pillExpandBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    expandedByUser = true;
+    updateDisplay();
+  });
+}
+
+function aggregateState() {
+  const counts = { working: 0, waitingForUser: 0, idle: 0 };
+  sessions.forEach(s => { if (counts[s.state] !== undefined) counts[s.state]++; });
+  return counts;
+}
+
+function needsSetup() {
+  return setupBannerNames && setupBannerNames.length > 0 && !providers.some(p => p.installed);
+}
+
+function shouldExpand() {
+  if (showSettings) return true;
+  if (manualEngage) return true;
+  if (expandedByUser) return true;
+  if (needsSetup()) return true;
+  return aggregateState().waitingForUser > 0; // waiting needs the user's attention
+}
+
+// Groups shown in the collapsed pill: always all three states (when there are
+// sessions), in a fixed order so positions don't jump around.
+function pillGroupsData() {
+  if (sessions.length === 0) return [];
+  const c = aggregateState();
+  return [
+    { state: 'working', cls: 'is-working', count: c.working },
+    { state: 'waitingForUser', cls: 'is-waiting', count: c.waitingForUser },
+    { state: 'idle', cls: 'is-idle', count: c.idle },
+  ];
+}
+
+function collapsedWidth() {
+  const n = pillGroupsData().length;
+  if (n === 0) return 104; // icon + "Idle" + expand button
+  return 60 + n * 34; // icon + groups + expand button
+}
+
+function renderCollapsedPill() {
+  const dotColors = getDotColors();
+  const groups = pillGroupsData();
+  const el = document.getElementById('pillGroups');
+  if (groups.length === 0) {
+    el.innerHTML = '<span class="pill-empty">Idle</span>';
+    return;
+  }
+  el.innerHTML = groups.map(g => {
+    const color = dotColors[g.state] || dotColors.idle;
+    const active = g.count > 0 && (g.state === 'working' || g.state === 'waitingForUser');
+    const cls = ['pill-group', active ? g.cls : '', g.count === 0 ? 'is-empty' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-tauri-drag-region>
+      <div class="pill-dot-container">
+        <div class="pill-dot" style="background:${color}"></div>
+        <div class="pill-dot-pulse" style="background:${color}"></div>
+      </div>
+      <span class="pill-count">${g.count}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateDisplay() {
+  const expand = shouldExpand();
+  displayMode = expand ? 'expanded' : 'collapsed';
+  capsule.classList.toggle('collapsed', !expand);
+
+  if (expand) {
+    renderSessionList();
+  } else {
+    renderCollapsedPill();
+  }
+  applyGeometry();
 }
 
 // --- Rendering ---
 
 function render() {
-  renderSessionList();
-  resizeWindow();
+  updateDisplay();
 }
 
 let setupBannerNames = null;
@@ -152,7 +270,7 @@ function renderSessionList() {
         showSettings = true;
         settingsBtn.classList.add('open');
         renderSettings();
-        resizeWindow();
+        updateDisplay();
       };
     }
     return;
@@ -412,28 +530,129 @@ function renderProviders() {
 
 // --- Window resize ---
 
-async function resizeWindow() {
+// Height of the left column (title bar + session list). The settings panel
+// docks to the side, so it no longer adds to this.
+function mainContentHeight() {
   let height = TITLE_HEIGHT;
   if (sessions.length === 0) {
     height += EMPTY_HEIGHT;
     // Add space for setup banner if visible
-    if (setupBannerNames && setupBannerNames.length > 0 && !providers.some(p => p.installed)) {
+    if (needsSetup()) {
       height += 40;
     }
   } else {
     height += sessions.length * ROW_HEIGHT + 8;
     // Add space for separator if there are pinned sessions
-    const hasPinnedSessions = sessions.some(s => s.pinned);
-    if (hasPinnedSessions) {
+    if (sessions.some(s => s.pinned)) {
       height += 3; // Separator height (1px) + margins (2px total)
     }
   }
-  if (showSettings) {
-    height += SETTINGS_HEIGHT;
+  return height;
+}
+
+function expandedHeight() {
+  const main = mainContentHeight();
+  // When the side panel is open, ensure the window is tall enough for it.
+  return showSettings ? Math.max(main, SETTINGS_PANEL_MIN_HEIGHT) : main;
+}
+
+// Pick the side the panel should open on, based on room around the window.
+// Works in physical pixels (only needs outer-position + current-monitor perms).
+// Falls back to 'right' (current behavior) if the window API is unavailable.
+async function decideSettingsSide() {
+  try {
+    const win = tauriWindow.getCurrentWindow();
+    const pos = await win.outerPosition();          // physical
+    const mon = await tauriWindow.currentMonitor(); // standalone fn in v2
+    if (!mon) return 'right';
+    const sf = mon.scaleFactor || 1;
+    const monLeft = mon.position.x;
+    const monRight = mon.position.x + mon.size.width;
+    const fullWidth = (EXPANDED_WIDTH + SETTINGS_PANEL_WIDTH) * sf;
+    const panelWidth = SETTINGS_PANEL_WIDTH * sf;
+    if (pos.x + fullWidth <= monRight) return 'right';
+    if (pos.x - panelWidth >= monLeft) return 'left';
+    return 'right';
+  } catch (e) {
+    return 'right';
   }
-  if (height === lastHeight) return;
+}
+
+// Slide the window so the main column stays visually fixed when the panel grows
+// on the left. Runs independently of resizing and never blocks it.
+async function setWindowSidePosition(wantLeft) {
+  if (wantLeft === (appliedShift > 0) || positioningBusy) return;
+  positioningBusy = true;
+  try {
+    const win = tauriWindow.getCurrentWindow();
+    const pos = await win.outerPosition();        // physical
+    if (wantLeft) {
+      const mon = await tauriWindow.currentMonitor();
+      const sf = (mon && mon.scaleFactor) || 1;
+      const shift = Math.round(SETTINGS_PANEL_WIDTH * sf);
+      await win.setPosition(new tauriWindow.PhysicalPosition(pos.x - shift, pos.y));
+      appliedShift = shift;
+    } else {
+      await win.setPosition(new tauriWindow.PhysicalPosition(pos.x + appliedShift, pos.y));
+      appliedShift = 0;
+    }
+  } catch (e) {
+    appliedShift = 0; // give up on the shift; next open falls back to the right
+  } finally {
+    positioningBusy = false;
+  }
+}
+
+async function applyWindowSize(width, height) {
+  if (width === lastWidth && height === lastHeight) return;
+  lastWidth = width;
   lastHeight = height;
-  await invoke('set_expanded', { height });
+  try {
+    await invoke('set_window_size', { width, height });
+  } catch (e) {}
+}
+
+// Fire-and-forget: the window-position calls must never gate the basic resize,
+// so this is intentionally not serialized.
+async function applyGeometry() {
+  let width, height, side = 'right';
+
+  if (displayMode === 'collapsed') {
+    width = collapsedWidth();
+    height = COLLAPSED_HEIGHT;
+  } else if (showSettings) {
+    // Decide the side once, when the panel first opens, then keep it stable
+    // until it closes (so dragging the window won't flip it mid-open). Time-box
+    // it so a slow window API can't delay the panel from opening.
+    if (!settingsWasOpen) {
+      settingsSide = await Promise.race([
+        decideSettingsSide(),
+        new Promise(resolve => setTimeout(() => resolve('right'), 400)),
+      ]);
+    }
+    side = settingsSide;
+    width = EXPANDED_WIDTH + SETTINGS_PANEL_WIDTH;
+    height = expandedHeight();
+  } else {
+    width = EXPANDED_WIDTH;
+    height = expandedHeight();
+  }
+
+  settingsWasOpen = displayMode === 'expanded' && showSettings;
+
+  // Panel on the left → reverse layout and flip the collapse chevron.
+  capsule.classList.toggle('settings-left', side === 'left');
+
+  // Always resize first so the core geometry can never be blocked by a slow
+  // window-position call; then reconcile the left/right shift (no-op when the
+  // panel is on the right and the window isn't shifted).
+  await applyWindowSize(width, height);
+  await setWindowSidePosition(side === 'left');
+}
+
+// Re-apply geometry for the current display mode (used after in-place renders).
+function resizeWindow() {
+  applyGeometry();
 }
 
 // --- Settings ---
@@ -488,13 +707,15 @@ function applySettings() {
 
 async function setSetting(key, value) {
   await invoke('set_setting', { key, value });
-  if (key === 'soundOnComplete') {
+  const boolKeys = ['soundOnComplete'];
+  if (boolKeys.includes(key)) {
     settings[key] = value === 'true';
   } else {
     settings[key] = value;
   }
   applySettings();
   renderSettings();
+  updateDisplay();
 }
 
 // --- Helpers ---

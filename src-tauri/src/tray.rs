@@ -31,6 +31,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         } else {
                             let _ = window.show();
                             let _ = window.set_focus();
+                            let _ = app.emit("force-interactive", ());
                         }
                     }
                 }

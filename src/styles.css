@@ -75,6 +75,156 @@ html, body {
 .capsule {
   background: var(--bg-base);
   overflow: hidden;
+  display: flex;
+  height: 100%;
+}
+
+/* Left column: title bar + session list. Fixed width; the settings panel
+   docks to its right when open. */
+.main-column {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Collapsed Status Pill (compact mode)
+   ============================================================ */
+.collapsed-pill {
+  display: none;
+  align-items: center;
+  height: 34px;
+  padding: 0 6px 0 12px;
+}
+
+.capsule.collapsed .collapsed-pill {
+  display: flex;
+}
+
+/* Drag area: icon + status groups */
+.pill-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+  cursor: grab;
+}
+
+.pill-content:active {
+  cursor: grabbing;
+}
+
+/* The only clickable target while collapsed */
+.pill-expand-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  margin-left: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.pill-expand-btn:hover {
+  color: var(--text-primary);
+  background: var(--ctrl-bg);
+}
+
+.pill-expand-btn:focus-visible {
+  outline: 2px solid var(--ring-focus);
+  outline-offset: -2px;
+}
+
+.capsule.collapsed .main-column,
+.capsule.collapsed .settings-panel {
+  display: none;
+}
+
+.pill-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.pill-groups {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  pointer-events: none;
+}
+
+.pill-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* States with no sessions are dimmed so the active ones stand out. */
+.pill-group.is-empty {
+  opacity: 0.3;
+}
+
+.pill-dot-container {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+  z-index: 1;
+}
+
+.pill-dot-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pill-group.is-working .pill-dot-pulse {
+  animation: pulse-working 2s ease-in-out infinite;
+}
+
+.pill-group.is-waiting .pill-dot-pulse {
+  animation: pulse-waiting 1.2s ease-in-out infinite;
+}
+
+.pill-count {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.pill-empty {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* ============================================================
@@ -159,7 +309,7 @@ html, body {
 
 .settings-btn .icon-chevron {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateX(-4px);
 }
 
 .settings-btn.open .icon-gear {
@@ -169,7 +319,17 @@ html, body {
 
 .settings-btn.open .icon-chevron {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
+}
+
+/* Panel on the left → mirror the chevron so it points right (the retract direction). */
+.capsule.settings-left .settings-btn.open .icon-chevron {
+  transform: scaleX(-1);
+}
+
+.settings-btn.open {
+  color: var(--text-primary);
+  background: var(--ctrl-bg);
 }
 
 .settings-btn:hover {
@@ -379,10 +539,22 @@ html, body {
    Settings Panel
    ============================================================ */
 .settings-panel {
-  padding: 6px 12px 14px;
-  border-top: 1px solid var(--border-subtle);
-  max-height: 300px;
+  width: 300px;
+  flex-shrink: 0;
+  padding: 10px 12px 14px;
+  border-left: 1px solid var(--border-subtle);
   overflow-y: auto;
+}
+
+/* When there is no room on the right, the panel docks on the left instead:
+   reverse the row so the main column stays put, and move the border. */
+.capsule.settings-left {
+  flex-direction: row-reverse;
+}
+
+.capsule.settings-left .settings-panel {
+  border-left: none;
+  border-right: 1px solid var(--border-subtle);
 }
 
 .settings-group {

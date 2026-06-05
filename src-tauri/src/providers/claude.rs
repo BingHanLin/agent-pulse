@@ -72,7 +72,14 @@ find_claude_pid() {{
 
 # Capture stdin immediately before any slow operations
 INPUT=$(cat)
-CPID=$(find_claude_pid)
+# SessionEnd fires while the agent is shutting down, so Claude Code gives the
+# hook only a short window before cancelling it. Skip the slow PowerShell PID
+# lookup here — the backend removes sessions by session_id, not PID.
+if echo "$INPUT" | grep -q '"hook_event_name"[[:space:]]*:[[:space:]]*"SessionEnd"'; then
+  CPID=0
+else
+  CPID=$(find_claude_pid)
+fi
 # Strip any agent-provided "source" field so we always control it
 INPUT=$(echo "$INPUT" | sed 's/,"source":"[^"]*"//g; s/"source":"[^"]*",//g')
 echo "$INPUT" | sed "s/}}$/,\"pid\":${{CPID:-0}},\"source\":\"{source}\"}}/" | curl -s -o /dev/null --max-time 2 -X POST http://127.0.0.1:{port} -H "Content-Type: application/json" -d @- 2>/dev/null || true
