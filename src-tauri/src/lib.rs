@@ -168,7 +168,11 @@ pub fn run() {
                         let w = window_clone.clone();
                         std::thread::spawn(move || {
                             std::thread::sleep(std::time::Duration::from_millis(100));
-                            platform::force_topmost(&w);
+                            // Don't re-assert topmost (which re-shows the window via
+                            // SWP_SHOWWINDOW) when the window was hidden to the tray.
+                            if w.is_visible().unwrap_or(false) {
+                                platform::force_topmost(&w);
+                            }
                         });
                     }
                 });
