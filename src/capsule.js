@@ -175,7 +175,7 @@ function shouldExpand() {
   if (manualEngage) return true;
   if (expandedByUser) return true;
   if (needsSetup()) return true;
-  return aggregateState().waitingForUser > 0; // waiting needs the user's attention
+  return false;
 }
 
 // Groups shown in the collapsed pill: always all three states (when there are
