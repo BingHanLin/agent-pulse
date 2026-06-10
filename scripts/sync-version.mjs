@@ -19,12 +19,16 @@ if (!/^\d+\.\d+\.\d+/.test(version)) {
 
 const sub = (file, re) => {
   const src = readFileSync(file, "utf8");
-  const out = src.replace(re, (_, pre, post) => pre + version + post);
-  if (out === src) {
+  let matched = false;
+  const out = src.replace(re, (_, pre, post) => {
+    matched = true;
+    return pre + version + post;
+  });
+  if (!matched) {
     console.error(`No version field matched in ${file}`);
     process.exit(1);
   }
-  writeFileSync(file, out);
+  if (out !== src) writeFileSync(file, out);
   console.log(`${file} -> ${version}`);
 };
 
