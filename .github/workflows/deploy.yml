@@ -29,6 +29,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sync version from tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/sync-version.mjs "$TAG"
+
       - name: Install Linux system dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
