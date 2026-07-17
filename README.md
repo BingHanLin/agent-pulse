@@ -19,6 +19,7 @@ Agent Pulse is a small always-on-top capsule that floats at the top of your scre
 | Agent | Status |
 |-------|--------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Supported |
+| [Codex](https://developers.openai.com/codex/) | Supported |
 | [OpenCode](https://opencode.ai) | Supported |
 
 More agents can be added — contributions welcome!
@@ -44,6 +45,9 @@ Download the latest release for your platform from the [Releases](https://github
 1. Open the settings panel (gear icon)
 2. Click **Configure** next to the agent you want to connect
 3. That's it — start using your agents as usual and sessions will appear in the widget
+
+For Codex, restart Codex after configuration, then use `/hooks` to review and
+trust the Agent Pulse lifecycle hook when prompted.
 
 ### Usage
 
