@@ -1,4 +1,5 @@
 pub mod claude;
+pub mod codex;
 pub mod opencode;
 
 use serde::Serialize;
@@ -62,6 +63,7 @@ impl ProviderRegistry {
 pub fn create_registry() -> ProviderRegistry {
     let mut registry = ProviderRegistry::new();
     registry.register(Box::new(claude::ClaudeCodeProvider));
+    registry.register(Box::new(codex::CodexProvider));
     registry.register(Box::new(opencode::OpenCodeProvider));
     registry
 }
